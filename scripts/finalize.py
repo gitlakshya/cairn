@@ -1,13 +1,28 @@
 #!/usr/bin/env python3
-"""Deterministic post-run pass over a generated .context/ directory.
+"""Deterministic post-run pass over a generated .cairn/ directory.
 
 Ported from openwiki-cc/scripts/openwiki-finalize.py (upstream: langchain-ai/openwiki v0.5.0).
 Runs in two modes:
 
-  --snapshot   Before AI writes: hash every page body, write .contexit-run.json
+  --snapshot   Before AI writes: hash every page body, write .cairn-run.json
   (default)    After AI writes: fix frontmatter, regenerate index.md,
-               annotate broken links, stamp provenance from hash diff,
-               then delete .contexit-run.json.
+               track cited source evidence (Grounded-Claims-lite), validate
+               Mermaid diagrams, annotate broken links, stamp provenance from
+               hash diff, then delete .cairn-run.json.
+
+Grounded-Claims-lite: pages may cite evidence inline as Markdown links with a
+`repo://<path>#L<start>-L<end>` href. Each run this script backfills the page's
+`sources` frontmatter field from those citations and compares cited-range
+content hashes against `.cairn/.sources-state.json` (committed with the
+wiki). A missing path, an out-of-bounds range, or a hash that no longer
+matches gets an inline `cairn: stale evidence` comment for the agent to
+resolve on the next run — deliberately one run behind, same as broken links.
+
+Mermaid diagrams: every ```mermaid fence is checked with a lightweight,
+zero-dependency validator (known diagram keyword, balanced brackets/quotes).
+A fence that fails is degraded in place to a ```text fence with a leading
+`cairn: mermaid validation failed` comment explaining why, so it renders as
+readable text instead of a broken diagram until the agent repairs it.
 
 Rules:
   1. Never fail — always exits 0.
@@ -24,10 +39,10 @@ import sys
 import urllib.parse
 
 RESERVED = {"index.md", "INSTRUCTIONS.md"}
-GENERATED_FIELD = "contexit_generated"
+GENERATED_FIELD = "cairn_generated"
 FALLBACK_TYPE = "Reference"
-STATE_FILENAME = ".contexit-run.json"
-ACTOR = "contexit"
+STATE_FILENAME = ".cairn-run.json"
+ACTOR = "cairn"
 
 
 # ---------------------------------------------------------------------------
@@ -161,6 +176,228 @@ def pass_frontmatter(wiki):
 
 
 # ---------------------------------------------------------------------------
+# Pass: Grounded-Claims-lite source tracking
+# ---------------------------------------------------------------------------
+
+SOURCE_RE = re.compile(r"\[(?P<text>[^\]]*)\]\((?P<href>repo://[^)\s]+)\)")
+SOURCE_MARKER_PREFIX = "cairn: stale evidence"
+_SOURCE_MARKER_LINE_RE = re.compile(r"^\s*<!--\s*%s[^\n]*?-->\r?$" % re.escape(SOURCE_MARKER_PREFIX))
+SOURCES_STATE_FILENAME = ".sources-state.json"
+
+
+def sources_state_path(wiki):
+    return wiki / SOURCES_STATE_FILENAME
+
+
+def _parse_source_uri(uri):
+    rest = uri[len("repo://"):]
+    path_part, _, frag = rest.partition("#")
+    start = end = None
+    if frag.startswith("L"):
+        nums = frag[1:].split("-L")
+        try:
+            start = int(nums[0])
+            end = int(nums[1]) if len(nums) > 1 else start
+        except ValueError:
+            start = end = None
+    return path_part, start, end
+
+
+def _hash_source_range(target, start, end):
+    try:
+        content = target.read_text(encoding="utf-8", errors="replace")
+    except (OSError, UnicodeDecodeError):
+        return None
+    if start is None:
+        text = content
+    else:
+        lines = content.splitlines()
+        if start < 1 or end < start or end > len(lines):
+            return None
+        text = "\n".join(lines[start - 1:end])
+    return hashlib.sha256(text.encode("utf-8")).hexdigest()
+
+
+def _extract_sources(body):
+    uris, seen, fence = [], set(), None
+    for line in body.split("\n"):
+        s = line.lstrip()
+        if s.startswith("```") or s.startswith("~~~"):
+            fence = None if fence else ("`" if s.startswith("`") else "~")
+            continue
+        if fence:
+            continue
+        for m in SOURCE_RE.finditer(line):
+            uri = m.group("href")
+            if uri not in seen:
+                seen.add(uri)
+                uris.append(uri)
+    return uris
+
+
+def _annotate_sources(body, annotations):
+    if not annotations:
+        return body
+    out_lines, fence = [], None
+    for line in body.split("\n"):
+        s = line.lstrip()
+        if s.startswith("```") or s.startswith("~~~"):
+            fence = None if fence else ("`" if s.startswith("`") else "~")
+            out_lines.append(line)
+            continue
+        out_lines.append(line)
+        if fence:
+            continue
+        indent = line[: len(line) - len(line.lstrip())]
+        for m in SOURCE_RE.finditer(line):
+            reason = annotations.get(m.group("href"))
+            if reason:
+                out_lines.append("%s<!-- %s - %s - %s -->" % (indent, SOURCE_MARKER_PREFIX, m.group("href"), reason))
+    return "\n".join(out_lines)
+
+
+def _set_list_field(text, key, items):
+    fields_text, _ = split_frontmatter(text)
+    if fields_text is None:
+        return text
+    nl, lines, body = _split_fields(text)
+    if items:
+        line = "%s: [%s]" % (key, ", ".join(items))
+        out = [line if _is_key_line(l, key) else l for l in lines]
+        if not any(_is_key_line(l, key) for l in lines):
+            out.append(line)
+    else:
+        out = [l for l in lines if not _is_key_line(l, key)]
+    return "---" + nl + nl.join(out) + nl + "---" + nl + body
+
+
+def pass_sources(wiki):
+    repo_root = wiki.resolve().parent
+    sp = sources_state_path(wiki)
+    try:
+        prior_state = json.loads(sp.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        prior_state = {}
+
+    new_state = {}
+    changed = []
+    for path in markdown_files(wiki):
+        if path.name in RESERVED:
+            continue
+        text = read_text(path)
+        if text is None:
+            continue
+        fields_text, body = split_frontmatter(text)
+        uris = _extract_sources(body)
+        rel = path.relative_to(wiki).as_posix()
+        prior_hashes = prior_state.get(rel, {})
+        page_hashes, annotations = {}, {}
+
+        for uri in uris:
+            path_part, start, end = _parse_source_uri(uri)
+            target = (repo_root / path_part).resolve()
+            if not target.exists() or target.is_dir():
+                annotations[uri] = "source not found"
+                continue
+            digest = _hash_source_range(target, start, end)
+            if digest is None:
+                annotations[uri] = "line range out of bounds"
+                continue
+            page_hashes[uri] = digest
+            prior = prior_hashes.get(uri)
+            if prior is not None and prior != digest:
+                annotations[uri] = "source changed since last verified"
+
+        if page_hashes:
+            new_state[rel] = page_hashes
+
+        new_body, _ = _strip_markers(body, _SOURCE_MARKER_LINE_RE)
+        new_body = _annotate_sources(new_body, annotations)
+        nl = "\r\n" if fields_text and "\r\n" in fields_text else "\n"
+        rebuilt = ("---" + nl + fields_text + "---" + nl + new_body) if fields_text is not None else new_body
+        updated = _set_list_field(rebuilt, "sources", sorted(set(uris)))
+
+        if updated != text and write_text(path, updated):
+            changed.append(str(path))
+
+    try:
+        with open(sp, "w", encoding="utf-8") as f:
+            json.dump(new_state, f, indent=2, sort_keys=True)
+            f.write("\n")
+    except OSError as e:
+        print("finalize: could not write sources state (%s)" % e)
+    return changed
+
+
+# ---------------------------------------------------------------------------
+# Pass: Mermaid diagram validation and self-healing degrade
+# ---------------------------------------------------------------------------
+
+MERMAID_MARKER_PREFIX = "cairn: mermaid validation failed"
+_MERMAID_BLOCK_RE = re.compile(r"(^[ \t]*```)(mermaid|text)([ \t]*\r?\n)(.*?)(^[ \t]*```[ \t]*\r?\n?)", re.S | re.M)
+_MERMAID_KEYWORDS = (
+    "graph", "flowchart", "sequenceDiagram", "classDiagram", "stateDiagram-v2",
+    "stateDiagram", "erDiagram", "journey", "gantt", "pie", "mindmap",
+    "timeline", "quadrantChart", "requirementDiagram", "gitGraph", "C4Context",
+    "C4Container", "C4Component", "C4Dynamic", "sankey-beta", "block-beta",
+    "xychart-beta", "packet-beta",
+)
+
+
+def _validate_mermaid(src):
+    stripped = src.strip()
+    if not stripped:
+        return "empty diagram"
+    first_line = stripped.splitlines()[0].strip()
+    if not any(first_line == kw or first_line.startswith(kw + " ") or first_line.startswith(kw + ":")
+               for kw in _MERMAID_KEYWORDS):
+        return "unrecognized diagram type"
+    pairs = {"(": ")", "[": "]", "{": "}"}
+    stack = []
+    for ch in stripped:
+        if ch in pairs:
+            stack.append(pairs[ch])
+        elif ch in pairs.values():
+            if not stack or stack.pop() != ch:
+                return "unbalanced brackets"
+    if stack:
+        return "unbalanced brackets"
+    if stripped.count('"') % 2 != 0:
+        return "unbalanced quotes"
+    return None
+
+
+def pass_mermaid(wiki):
+    changed = []
+    for path in markdown_files(wiki):
+        if path.name in RESERVED:
+            continue
+        text = read_text(path)
+        if text is None:
+            continue
+        fields_text, body = split_frontmatter(text)
+
+        def _fix(m):
+            fence, lang, nl_after, content, close = m.groups()
+            if lang != "mermaid":
+                return m.group(0)
+            reason = _validate_mermaid(content)
+            if reason is None:
+                return m.group(0)
+            comment = "%s: %s - degraded to text, repair on next update\n" % (MERMAID_MARKER_PREFIX, reason)
+            return fence + "text" + nl_after + comment + content + close
+
+        new_body = _MERMAID_BLOCK_RE.sub(_fix, body)
+        if new_body == body:
+            continue
+        nl = "\r\n" if fields_text and "\r\n" in fields_text else "\n"
+        updated = ("---" + nl + fields_text + "---" + nl + new_body) if fields_text is not None else new_body
+        if updated != text and write_text(path, updated):
+            changed.append(str(path))
+    return changed
+
+
+# ---------------------------------------------------------------------------
 # Pass 2: index.md generation
 # ---------------------------------------------------------------------------
 
@@ -210,7 +447,7 @@ def render_index(directory, wiki):
             entries.append((_encode(child.name), _label(child)))
 
     is_root = directory.resolve() == wiki.resolve()
-    title = "contexIT Wiki" if is_root else directory.name.replace("-", " ").title()
+    title = "Cairn Wiki" if is_root else directory.name.replace("-", " ").title()
     lines = ["# %s" % title, ""]
     lines += ["- [%s](%s)" % (_escape_label(lbl), href)
               for href, lbl in sorted(entries)]
@@ -244,7 +481,7 @@ def pass_indexes(wiki):
 # Pass 3: broken link annotation
 # ---------------------------------------------------------------------------
 
-MARKER_PREFIX = "contexit: broken internal link"
+MARKER_PREFIX = "cairn: broken internal link"
 LINK_RE = re.compile(r"\[(?P<text>[^\]]*)\]\((?P<href>[^)\s]+)\)")
 ATX_RE = re.compile(r"^(#{1,6})\s+(.*)$", re.M)
 _MARKER_LINE_RE = re.compile(r"^\s*<!--\s*%s[^\n]*?-->\r?$" % re.escape(MARKER_PREFIX))
@@ -266,13 +503,13 @@ def _headings(text):
     return set(slugs)
 
 
-def _strip_markers(body):
+def _strip_markers(body, marker_re):
     kept, had, in_fence = [], False, False
     for line in body.split("\n"):
         stripped = line.lstrip()
         if stripped.startswith("```") or stripped.startswith("~~~"):
             in_fence = not in_fence
-        if not in_fence and _MARKER_LINE_RE.match(line):
+        if not in_fence and marker_re.match(line):
             had = True
             continue
         kept.append(line)
@@ -286,7 +523,7 @@ def pass_links(wiki):
         if original is None:
             continue
         fm_text, orig_body = split_frontmatter(original)
-        body, had_markers = _strip_markers(orig_body)
+        body, had_markers = _strip_markers(orig_body, _MARKER_LINE_RE)
         out_lines, fence_char, found = [], None, False
 
         for line in body.split("\n"):
@@ -298,7 +535,7 @@ def pass_links(wiki):
             if fence_char is None:
                 for m in LINK_RE.finditer(line):
                     href = m.group("href")
-                    if href.startswith(("http://", "https://", "mailto:", "//", "#", "/")):
+                    if href.startswith(("http://", "https://", "mailto:", "//", "#", "/", "repo://")):
                         continue
                     target_part, _, anchor = href.partition("#")
                     if not target_part:
@@ -490,7 +727,7 @@ def write_snapshot(wiki):
 
 def main():
     ap = argparse.ArgumentParser(description=__doc__)
-    ap.add_argument("wiki", nargs="?", default=".context")
+    ap.add_argument("wiki", nargs="?", default=".cairn")
     ap.add_argument("--snapshot", action="store_true",
                     help="pre-run mode: hash existing pages, write state file")
     ap.add_argument("--actor", default=ACTOR,
@@ -511,6 +748,8 @@ def main():
     at = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
     fm = pass_frontmatter(wiki)
+    src = pass_sources(wiki)
+    mer = pass_mermaid(wiki)
     idx = pass_indexes(wiki)
     lnk = pass_links(wiki)
     prov = pass_provenance(wiki, actor, at)
@@ -521,9 +760,9 @@ def main():
     except OSError:
         pass
 
-    print("finalize: frontmatter %d, indexes %d, links %d, provenance %d"
-          % (len(fm), len(idx), len(lnk), len(prov)))
-    for p in fm + idx + lnk + prov:
+    print("finalize: frontmatter %d, sources %d, mermaid %d, indexes %d, links %d, provenance %d"
+          % (len(fm), len(src), len(mer), len(idx), len(lnk), len(prov)))
+    for p in fm + src + mer + idx + lnk + prov:
         print("  + %s" % p)
     return 0
 

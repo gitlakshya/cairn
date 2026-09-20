@@ -26,7 +26,7 @@ class Contexit {
 
   constructor(root = process.cwd()) {
     this.root = root;
-    this.configPath = path.join(root, ".context/contexit.json");
+    this.configPath = path.join(root, ".cairn/cairn.json");
     this.config = this.loadConfig();
   }
 
@@ -35,16 +35,16 @@ class Contexit {
       try {
         const existing = JSON.parse(fs.readFileSync(this.configPath, "utf-8"));
         return {
-          version: existing.version || "3.0.0",
+          version: existing.version || "3.1.0",
           triggers: existing.triggers || ["push"],
-          contextPath: existing.contextPath || ".context",
+          contextPath: existing.contextPath || ".cairn",
           initialized: existing.initialized || false,
         };
       } catch {
         // fall through to default
       }
     }
-    return { version: "3.0.0", triggers: ["push"], contextPath: ".context", initialized: false };
+    return { version: "3.1.0", triggers: ["push"], contextPath: ".cairn", initialized: false };
   }
 
   private saveConfig(): void {
@@ -131,7 +131,7 @@ class Contexit {
 
   private analyzeFiles(): string {
     const ignore = new Set([
-      ".git", "node_modules", ".context", "dist", "build",
+      ".git", "node_modules", ".cairn", "dist", "build",
       "__pycache__", ".venv", ".env", "coverage", ".nyc_output",
     ]);
     const lines: string[] = [];
@@ -308,31 +308,31 @@ AI documentation not yet generated.
 
 To generate: ensure Claude Code is installed, then run:
   npm run init
-or type \`/contexit:wiki init\` in Claude Code.
+or type \`/cairn:wiki init\` in Claude Code.
 `
     );
   }
 
   private writeBoundaryFiles(): void {
-    const claudeMd = `# contexIT
+    const claudeMd = `# Cairn
 
-Wiki in \`.context/\` — start at \`.context/quickstart.md\`.
+Wiki in \`.cairn/\` — start at \`.cairn/quickstart.md\`.
 
 ## Agent Rules
-- Read \`.context/quickstart.md\` before any repo exploration
-- Prefer \`.context/\` docs over filesystem searches
-- Refresh: \`/contexit:wiki update\` or \`npm run sync\`
+- Read \`.cairn/quickstart.md\` before any repo exploration
+- Prefer \`.cairn/\` docs over filesystem searches
+- Refresh: \`/cairn:wiki update\` or \`npm run sync\`
 
 ## Config
-Triggers: ${this.config.triggers.join(", ")} | Config: \`.contexit.json\`
+Triggers: ${this.config.triggers.join(", ")} | Config: \`.cairn.json\`
 `;
-    const agentsMd = `# contexIT
-Wiki: \`.context/\` (entry: quickstart.md)
-Refresh: \`/contexit:wiki update\` or \`npm run sync\`
-Config: \`.contexit.json\`
+    const agentsMd = `# Cairn
+Wiki: \`.cairn/\` (entry: quickstart.md)
+Refresh: \`/cairn:wiki update\` or \`npm run sync\`
+Config: \`.cairn.json\`
 `;
-    const cursorRules = `Read .context/quickstart.md for repo overview.
-Refresh docs: /contexit:wiki update
+    const cursorRules = `Read .cairn/quickstart.md for repo overview.
+Refresh docs: /cairn:wiki update
 `;
 
     for (const [file, content] of [
@@ -369,9 +369,9 @@ Refresh docs: /contexit:wiki update
       fs.writeFileSync(
         hookPath,
         `#!/bin/bash
-# contexIT hook — guards against recursive invocation
-[ "\${CONTEXIT_HOOK:-0}" = "1" ] && exit 0
-CONTEXIT_HOOK=1 node "${toolPath}" --update
+# Cairn hook — guards against recursive invocation
+[ "\${CAIRN_HOOK:-0}" = "1" ] && exit 0
+CAIRN_HOOK=1 node "${toolPath}" --update
 `
       );
       fs.chmodSync(hookPath, 0o755);
@@ -482,7 +482,7 @@ async function main(): Promise<void> {
     args.length === 0
   ) {
     console.log(`
-contexIT v3.0.0 — AI-powered repository wiki
+Cairn v3.1.0 — AI-powered repository wiki
 
 CLI:
   --init                              Initialize wiki (full generation)
@@ -490,16 +490,16 @@ CLI:
   --configure-triggers <list>         Set triggers: commit,push,merge,ci,manual
 
 Slash commands (in Claude Code):
-  /contexit:wiki                       Auto-route: init if new, update if exists
-  /contexit:wiki init                  Force full init
-  /contexit:wiki update                Force update
-  /contexit:wiki update <instruction>  Update with extra guidance
+  /cairn:wiki                       Auto-route: init if new, update if exists
+  /cairn:wiki init                  Force full init
+  /cairn:wiki update                Force update
+  /cairn:wiki update <instruction>  Update with extra guidance
 
-Generated pages (in .context/):
+Generated pages (in .cairn/):
   quickstart.md   ≤40 lines  — entry point
   + thematic pages based on repo complexity (max 8 total)
 
-Config: .contexit.json
+Config: .cairn.json
 `);
   } else {
     console.log('Unknown command. Run with --help.');

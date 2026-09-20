@@ -1,10 +1,12 @@
-# contexIT
+# Cairn
 
 AI-powered repository wiki that stays in sync with your code.
 
 ## What it does
 
-Generates a compact wiki in `.context/` — thematic pages averaging ≤80 lines each, with OKF frontmatter, grounded in your actual files and git history. Updates surgically (only pages affected by recent changes). No-ops when nothing changed.
+Generates a compact wiki in `.cairn/` — thematic pages averaging ≤80 lines each, with OKF frontmatter, grounded in your actual files and git history. Updates surgically (only pages affected by recent changes). No-ops when nothing changed.
+
+Material claims can cite exact evidence (`repo://path#L10-L42`); `scripts/finalize.py` tracks and hashes those citations and flags them when the cited source drifts (Grounded-Claims-lite). Diagrams are validated too — a broken Mermaid fence degrades to readable text with a repair note instead of shipping broken.
 
 ## Install
 
@@ -12,15 +14,15 @@ Generates a compact wiki in `.context/` — thematic pages averaging ≤80 lines
 npm install && npm run build
 ```
 
-contexIT is a self-contained **Claude Code plugin** — `.claude-plugin/` + `commands/wiki.md` + `hooks/` live at the repo root, so the same checkout also installs directly as a **Copilot CLI plugin** (it reads the same `.claude-plugin/plugin.json` / `marketplace.json`). Codex and other `AGENTS.md`-style agents pick up the twin skill under `.agents/skills/contexit/`.
+Cairn is a self-contained **Claude Code plugin** — `.claude-plugin/` + `commands/wiki.md` + `hooks/` live at the repo root, so the same checkout also installs directly as a **Copilot CLI plugin** (it reads the same `.claude-plugin/plugin.json` / `marketplace.json`). Codex and other `AGENTS.md`-style agents pick up the twin skill under `.agents/skills/cairn/`.
 
 ### Claude Code
 
 ```
-/plugin marketplace add gitlakshya/contexit
-/plugin install contexit@contexit
+/plugin marketplace add gitlakshya/cairn
+/plugin install cairn@cairn
 ```
-Then `/contexit:wiki` is available in every project. Manual install (bare `/wiki`, no marketplace):
+Then `/cairn:wiki` is available in every project. Manual install (bare `/wiki`, no marketplace):
 ```bash
 mkdir -p .claude/commands && cp commands/wiki.md .claude/commands/wiki.md
 ```
@@ -28,31 +30,31 @@ mkdir -p .claude/commands && cp commands/wiki.md .claude/commands/wiki.md
 ### GitHub Copilot CLI
 
 ```
-copilot plugin marketplace add gitlakshya/contexit
-copilot plugin install contexit@contexit
+copilot plugin marketplace add gitlakshya/cairn
+copilot plugin install cairn@cairn
 ```
-Or install just the skill: `copilot skill add gitlakshya/contexit:.agents/skills/contexit`.
+Or install just the skill: `copilot skill add gitlakshya/cairn:.agents/skills/cairn`.
 
 ### Codex / opencode / other AGENTS.md agents
 
 ```bash
-mkdir -p ~/.agents/skills && cp -r .agents/skills/contexit ~/.agents/skills/   # global
-# or: cp -r .agents/skills/contexit your-repo/.agents/skills/                 # per-project
+mkdir -p ~/.agents/skills && cp -r .agents/skills/cairn ~/.agents/skills/   # global
+# or: cp -r .agents/skills/cairn your-repo/.agents/skills/                 # per-project
 ```
-Invoke with `$contexit` (Codex), the `skill` tool (opencode), or by asking to "update the contexit wiki".
+Invoke with `$cairn` (Codex), the `skill` tool (opencode), or by asking to "update the cairn wiki".
 
 ## Usage
 
 ### Claude Code / Copilot CLI
 ```
-/contexit:wiki           # auto: init if new, update if exists
-/contexit:wiki init      # force full generation
-/contexit:wiki update    # force surgical update
-/contexit:wiki update focus on the new auth module
+/cairn:wiki           # auto: init if new, update if exists
+/cairn:wiki init      # force full generation
+/cairn:wiki update    # force surgical update
+/cairn:wiki update focus on the new auth module
 ```
 
 ### Codex / opencode
-Ask to "initialize" or "update" the contexit docs; extra wording rides along as an additional instruction.
+Ask to "initialize" or "update" the cairn docs; extra wording rides along as an additional instruction.
 
 ### CLI (for git hooks / CI)
 ```bash
@@ -64,15 +66,15 @@ npm run configure-triggers -- push,merge
 
 ## Auto-run as a hook (other coding agents)
 
-`hooks/context-gate.sh` is host-agnostic: it reproduces the wiki's no-op check in pure shell (zero tokens) and spawns the configured agent headlessly only when source actually changed. Wiring ships pre-configured:
+`hooks/cairn-gate.sh` is host-agnostic: it reproduces the wiki's no-op check in pure shell (zero tokens) and spawns the configured agent headlessly only when source actually changed. Wiring ships pre-configured:
 
 | Host | Wiring | Runner |
 |------|--------|--------|
-| Claude Code | `hooks/hooks.json` (`Stop` event, bundled with the plugin) | `claude -p '/contexit:wiki update'` |
-| Copilot CLI | same `hooks/hooks.json` (Copilot CLI reads the identical plugin hook path) | `copilot -p 'update the contexit wiki'` |
-| Codex | `.codex/hooks.json` (`Stop` event) | `codex exec 'update the contexit wiki'` |
+| Claude Code | `hooks/hooks.json` (`Stop` event, bundled with the plugin) | `claude -p '/cairn:wiki update'` |
+| Copilot CLI | same `hooks/hooks.json` (Copilot CLI reads the identical plugin hook path) | `copilot -p 'update the cairn wiki'` |
+| Codex | `.codex/hooks.json` (`Stop` event) | `codex exec 'update the cairn wiki'` |
 
-Set `contexit_AGENT=claude|codex|copilot` to pick the runner manually, e.g. when wiring the script into another host's hook system. The `contexit_HOOK=1` guard prevents the headless run from re-triggering its own hook.
+Set `cairn_AGENT=claude|codex|copilot` to pick the runner manually, e.g. when wiring the script into another host's hook system. The `cairn_HOOK=1` guard prevents the headless run from re-triggering its own hook.
 
 ## Generated pages
 
@@ -87,36 +89,52 @@ Set `contexit_AGENT=claude|codex|copilot` to pick the runner manually, e.g. when
 | `workflows.md` | ≤80 | Key operational flows |
 | *(others)* | ≤80 | components, testing, deployment… |
 
-Entry point: `.context/quickstart.md`
+Entry point: `.cairn/quickstart.md`
+
+## Grounded-Claims-lite
+
+Pages may cite material claims inline as `[text](repo://path/to/file#L10-L42)` links. On every run, `scripts/finalize.py`:
+
+- backfills the page's `sources` frontmatter from those citations (never hand-author this field);
+- hashes each cited line range and compares it against `.cairn/.sources-state.json` (committed with the wiki);
+- inserts a `<!-- cairn: stale evidence - ... -->` comment when a citation's target is missing, its line range no longer fits the file, or its content has changed since last verified.
+
+The next run's agent finds that comment, re-verifies the claim against current source, and removes it — the same repair loop already used for broken internal links.
+
+## Diagrams
+
+Agents add ```mermaid fences (sequence, state, flow, ER) where they clarify a runtime flow, lifecycle, or data model better than prose, following the dedicated `skills/mermaid-diagrams/SKILL.md` skill (diagram-type selection, grounding discipline, Mermaid syntax-safety rules — adapted from `langchain-ai/openwiki`'s skill of the same name). `scripts/finalize.py` validates every fence with a lightweight, zero-dependency check (known diagram keyword, balanced brackets/quotes). A fence that fails is degraded in place to a ```text fence with a `cairn: mermaid validation failed` comment explaining why, so it renders as readable text instead of a broken diagram until an agent repairs it on the next run.
 
 ## User scope override
 
-Create `.context/INSTRUCTIONS.md` to guide generation. This file is never auto-modified.
+Create `.cairn/INSTRUCTIONS.md` to guide generation. This file is never auto-modified.
 
 ## Sync triggers
 
-Configured in `.contexit.json`. Options: `commit`, `push` (default), `merge`, `ci`, `manual`.
+Configured in `.cairn.json`. Options: `commit`, `push` (default), `merge`, `ci`, `manual`.
 
 ```bash
 npm run configure-triggers -- push,merge
 ```
 
-Git hooks are auto-created in `.git/hooks/` and guarded by `hooks/context-gate.sh` to prevent no-op runs.
+Git hooks are auto-created in `.git/hooks/` and guarded by `hooks/cairn-gate.sh` to prevent no-op runs.
 
 ## How it works
 
 1. Collects git evidence (status, HEAD, diff summary, recent commits)
-2. **Snapshot** — `scripts/finalize.py .context --snapshot` hashes every existing page body
-3. AI writes page content (body only, no frontmatter)
-4. **Finalize** — `scripts/finalize.py .context` deterministically:
+2. **Snapshot** — `scripts/finalize.py .cairn --snapshot` hashes every existing page body
+3. AI writes page content (body only, no frontmatter), citing material claims as `repo://` links and adding Mermaid diagrams where they clarify a flow
+4. **Finalize** — `scripts/finalize.py .cairn` deterministically:
    - Backfills OKF frontmatter on any page missing it
+   - Extracts `repo://` citations into each page's `sources` field, hashes cited ranges, and flags drifted/missing evidence (Grounded-Claims-lite)
+   - Validates Mermaid fences and degrades broken ones to commented `text` fences
    - Regenerates `index.md` for the wiki root and subdirectories
    - Annotates broken internal links
    - Compares body hashes: changed pages stamped with `generated: { by, at }`; unchanged pages keep their original provenance
-   - Deletes transient `.contexit-run.json`
-5. Writes `.context/.last-update.json` with HEAD + timestamp
+   - Deletes transient `.cairn-run.json`
+5. Writes `.cairn/.last-update.json` with HEAD + timestamp
 
-Uses whatever LLM you have configured in your coding agent (Claude Code, Copilot CLI, Codex, opencode, …) — no API keys needed in contexIT itself.
+Uses whatever LLM you have configured in your coding agent (Claude Code, Copilot CLI, Codex, opencode, …) — no API keys needed in Cairn itself.
 
 ## Repository layout
 
@@ -125,13 +143,15 @@ Uses whatever LLM you have configured in your coding agent (Claude Code, Copilot
   plugin.json         # Claude Code + Copilot CLI plugin manifest
   marketplace.json    # single-plugin marketplace (source: ./)
 commands/
-  wiki.md             # Claude Code / Copilot CLI slash command → /contexit:wiki
+  wiki.md             # Claude Code / Copilot CLI slash command → /cairn:wiki
 hooks/
   hooks.json          # Stop-hook wiring shared by Claude Code + Copilot CLI
-  context-gate.sh     # shell no-op gate; dispatches to claude|codex|copilot
+  cairn-gate.sh     # shell no-op gate; dispatches to claude|codex|copilot
 .codex/
   hooks.json          # Codex Stop-hook wiring → the same gate
-.agents/skills/contexit/
+skills/mermaid-diagrams/
+  SKILL.md            # diagram-type selection, discipline, syntax-safety rules
+.agents/skills/cairn/
   SKILL.md            # skill for Codex, opencode, and other AGENTS.md hosts
   scripts/finalize.py # byte-identical twin so a standalone skill install works
 scripts/

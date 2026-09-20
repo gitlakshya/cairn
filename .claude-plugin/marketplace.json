@@ -1,17 +1,17 @@
 {
-  "name": "contexit",
+  "name": "cairn",
   "owner": {
     "name": "gitlakshya"
   },
   "metadata": {
-    "description": "contexIT — AI-powered repository wiki plugin marketplace"
+    "description": "Cairn — AI-powered repository wiki plugin marketplace"
   },
   "plugins": [
     {
-      "name": "contexit",
+      "name": "cairn",
       "source": "./",
       "description": "AI-powered repository wiki that stays in sync with your code.",
-      "version": "3.0.0"
+      "version": "3.1.0"
     }
   ]
 }

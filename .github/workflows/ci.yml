@@ -1,0 +1,38 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+
+      - name: Validate plugin manifests
+        run: |
+          npx --yes @anthropic-ai/claude-code plugin validate .claude-plugin/plugin.json
+          npx --yes @anthropic-ai/claude-code plugin validate .
+
+      - name: Validate Python finalizer
+        run: |
+          python3 -m py_compile scripts/finalize.py
+          diff -u scripts/finalize.py .agents/skills/cairn/scripts/finalize.py

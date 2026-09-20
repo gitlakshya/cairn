@@ -1,12 +1,12 @@
 # Configuration
 
-Config file: `.contexit.json` (auto-created by `npm run init`)
+Config file: `.cairn.json` (auto-created by `npm run init`)
 
 ```json
 {
-  "version": "3.0.0",
+  "version": "3.1.0",
   "triggers": ["push"],
-  "contextPath": ".context",
+  "contextPath": ".cairn",
   "initialized": true
 }
 ```
@@ -31,11 +31,11 @@ npm run configure-triggers -- ci           # CI/CD only
 
 ## `contextPath`
 
-Directory for generated wiki. Default: `.context`. Changing after init requires manual migration.
+Directory for generated wiki. Default: `.cairn`. Changing after init requires manual migration.
 
 ## User scope override
 
-Create `.context/INSTRUCTIONS.md` to direct generation:
+Create `.cairn/INSTRUCTIONS.md` to direct generation:
 
 ```markdown
 # Generation Instructions
@@ -61,15 +61,15 @@ jobs:
       - run: npm run sync
       - uses: stefanzweifel/git-auto-commit-action@v5
         with:
-          commit_message: "chore: sync contexit wiki"
-          file_pattern: ".context/"
+          commit_message: "chore: sync cairn wiki"
+          file_pattern: ".cairn/"
 ```
 
 ## What to commit
 
 ```
-✅  .context/          generated wiki pages
-✅  .contexit.json    config (no secrets)
+✅  .cairn/          generated wiki pages
+✅  .cairn.json    config (no secrets)
 ✅  CLAUDE.md, AGENTS.md, .cursorrules
 ❌  node_modules/, dist/
 ```
