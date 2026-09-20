@@ -1,10 +1,10 @@
 # Configuration
 
-Config file: `.cairn.json` (auto-created by `npm run init`)
+Config file: `.cairn/cairn.json` (auto-created by `npm run init`)
 
 ```json
 {
-  "version": "3.1.0",
+  "version": "0.4.0",
   "triggers": ["push"],
   "contextPath": ".cairn",
   "initialized": true
@@ -48,28 +48,13 @@ This file is never auto-modified.
 
 ## CI/CD (GitHub Actions)
 
-```yaml
-on: [push]
-jobs:
-  sync-wiki:
-    runs-on: ubuntu-latest
-    env:
-      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
-    steps:
-      - uses: actions/checkout@v4
-      - run: npm ci && npm run build
-      - run: npm run sync
-      - uses: stefanzweifel/git-auto-commit-action@v5
-        with:
-          commit_message: "chore: sync cairn wiki"
-          file_pattern: ".cairn/"
-```
+Copy [`examples/cairn-update.yml`](examples/cairn-update.yml) into `.github/workflows/cairn-update.yml` (pin the checked-out ref and add the provider secret).
 
 ## What to commit
 
 ```
 ✅  .cairn/          generated wiki pages
-✅  .cairn.json    config (no secrets)
+✅  .cairn/cairn.json config (no secrets)
 ✅  CLAUDE.md, AGENTS.md, .cursorrules
 ❌  node_modules/, dist/
 ```

@@ -35,7 +35,7 @@ class Contexit {
       try {
         const existing = JSON.parse(fs.readFileSync(this.configPath, "utf-8"));
         return {
-          version: existing.version || "3.1.0",
+          version: existing.version || "0.4.0",
           triggers: existing.triggers || ["push"],
           contextPath: existing.contextPath || ".cairn",
           initialized: existing.initialized || false,
@@ -44,7 +44,7 @@ class Contexit {
         // fall through to default
       }
     }
-    return { version: "3.1.0", triggers: ["push"], contextPath: ".cairn", initialized: false };
+    return { version: "0.4.0", triggers: ["push"], contextPath: ".cairn", initialized: false };
   }
 
   private saveConfig(): void {
@@ -324,12 +324,12 @@ Wiki in \`.cairn/\` — start at \`.cairn/quickstart.md\`.
 - Refresh: \`/cairn:wiki update\` or \`npm run sync\`
 
 ## Config
-Triggers: ${this.config.triggers.join(", ")} | Config: \`.cairn.json\`
+Triggers: ${this.config.triggers.join(", ")} | Config: \`.cairn/cairn.json\`
 `;
     const agentsMd = `# Cairn
 Wiki: \`.cairn/\` (entry: quickstart.md)
 Refresh: \`/cairn:wiki update\` or \`npm run sync\`
-Config: \`.cairn.json\`
+Config: \`.cairn/cairn.json\`
 `;
     const cursorRules = `Read .cairn/quickstart.md for repo overview.
 Refresh docs: /cairn:wiki update
@@ -382,6 +382,9 @@ CAIRN_HOOK=1 node "${toolPath}" --update
     console.log("Initializing repository context...");
     fs.mkdirSync(this.contextDir(), { recursive: true });
 
+    this.config.triggers = this.config.triggers.length > 0 ? this.config.triggers : ["push"];
+    this.saveConfig();  // not yet marked initialized — a crash before the end leaves init retriable
+
     // Phase 1: snapshot existing pages before AI writes
     this.runFinalize("snapshot");
 
@@ -401,7 +404,7 @@ CAIRN_HOOK=1 node "${toolPath}" --update
     this.runFinalize("finalize");
 
     this.saveLastUpdate("init");
-    this.config.initialized = true;
+    this.config.initialized = true;  // only now: generation + finalize both completed
     this.saveConfig();
     await this.setupGitHooks();
     this.writeBoundaryFiles();
@@ -482,7 +485,7 @@ async function main(): Promise<void> {
     args.length === 0
   ) {
     console.log(`
-Cairn v3.1.0 — AI-powered repository wiki
+Cairn v0.4.0 — AI-powered repository wiki
 
 CLI:
   --init                              Initialize wiki (full generation)
@@ -499,7 +502,7 @@ Generated pages (in .cairn/):
   quickstart.md   ≤40 lines  — entry point
   + thematic pages based on repo complexity (max 8 total)
 
-Config: .cairn.json
+Config: .cairn/cairn.json
 `);
   } else {
     console.log('Unknown command. Run with --help.');

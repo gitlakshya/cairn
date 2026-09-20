@@ -35,4 +35,8 @@ jobs:
       - name: Validate Python finalizer
         run: |
           python3 -m py_compile scripts/finalize.py
-          diff -u scripts/finalize.py .agents/skills/cairn/scripts/finalize.py
+          test -L .agents/skills/cairn/scripts/finalize.py
+          test "$(readlink .agents/skills/cairn/scripts/finalize.py)" = "../../../../scripts/finalize.py"
+
+      - name: Run finalize.py test suite
+        run: python3 -m unittest discover -s tests -v

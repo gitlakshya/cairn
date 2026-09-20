@@ -2,6 +2,8 @@
 
 AI-powered repository wiki that stays in sync with your code.
 
+[MIT licensed](LICENSE)
+
 ## What it does
 
 Generates a compact wiki in `.cairn/` — thematic pages averaging ≤80 lines each, with OKF frontmatter, grounded in your actual files and git history. Updates surgically (only pages affected by recent changes). No-ops when nothing changed.
@@ -38,9 +40,11 @@ Or install just the skill: `copilot skill add gitlakshya/cairn:.agents/skills/ca
 ### Codex / opencode / other AGENTS.md agents
 
 ```bash
-mkdir -p ~/.agents/skills && cp -r .agents/skills/cairn ~/.agents/skills/   # global
-# or: cp -r .agents/skills/cairn your-repo/.agents/skills/                 # per-project
+mkdir -p ~/.agents/skills && cp -rL .agents/skills/cairn ~/.agents/skills/   # global
+# or: cp -rL .agents/skills/cairn your-repo/.agents/skills/                 # per-project
 ```
+`scripts/finalize.py` under the skill is a symlink into this checkout's own `scripts/`; `-L` dereferences it into a standalone copy so the finalizer still resolves once the skill is copied elsewhere. A plain `cp -r` reproduces the symlink literally and it will point outside the copy.
+
 Invoke with `$cairn` (Codex), the `skill` tool (opencode), or by asking to "update the cairn wiki".
 
 ## Usage
@@ -111,13 +115,28 @@ Create `.cairn/INSTRUCTIONS.md` to guide generation. This file is never auto-mod
 
 ## Sync triggers
 
-Configured in `.cairn.json`. Options: `commit`, `push` (default), `merge`, `ci`, `manual`.
+The first `init` automatically configures the `push` trigger and installs a Git `post-push` hook. Configuration is stored in `.cairn/cairn.json`. Options are `commit`, `push` (default), `merge`, `ci`, and `manual`.
+
+Installing the plugin alone cannot modify a target repository's `.git/hooks/` directory. Run `init` once in each repository to create the default `post-push` hook.
 
 ```bash
 npm run configure-triggers -- push,merge
 ```
 
 Git hooks are auto-created in `.git/hooks/` and guarded by `hooks/cairn-gate.sh` to prevent no-op runs.
+
+## Development
+
+`scripts/finalize.py` is the deterministic core (frontmatter, sources, mermaid, links, provenance) and has a golden-fixture test suite in `tests/`:
+
+```bash
+python3 -m unittest discover -s tests -v
+```
+
+`.agents/skills/cairn/scripts/finalize.py` is a symlink to `scripts/finalize.py` — there is exactly one copy of the finalizer; do not hand-edit or re-create it as a separate file.
+
+CI ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)) runs the test suite, plugin manifest validation, and a symlink check on every PR.
+
 
 ## How it works
 
