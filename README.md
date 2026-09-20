@@ -111,7 +111,9 @@ Create `.cairn/INSTRUCTIONS.md` to guide generation. This file is never auto-mod
 
 ## Sync triggers
 
-Configured in `.cairn.json`. Options: `commit`, `push` (default), `merge`, `ci`, `manual`.
+The first `init` automatically configures the `push` trigger and installs a Git `post-push` hook. Configuration is stored in `.cairn/cairn.json`. Options are `commit`, `push` (default), `merge`, `ci`, and `manual`.
+
+Installing the plugin alone cannot modify a target repository's `.git/hooks/` directory. Run `init` once in each repository to create the default `post-push` hook.
 
 ```bash
 npm run configure-triggers -- push,merge

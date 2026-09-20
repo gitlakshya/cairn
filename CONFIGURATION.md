@@ -1,6 +1,6 @@
 # Configuration
 
-Config file: `.cairn.json` (auto-created by `npm run init`)
+Config file: `.cairn/cairn.json` (auto-created by `npm run init`)
 
 ```json
 {
@@ -69,7 +69,7 @@ jobs:
 
 ```
 ✅  .cairn/          generated wiki pages
-✅  .cairn.json    config (no secrets)
+✅  .cairn/cairn.json config (no secrets)
 ✅  CLAUDE.md, AGENTS.md, .cursorrules
 ❌  node_modules/, dist/
 ```

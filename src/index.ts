@@ -382,6 +382,10 @@ CAIRN_HOOK=1 node "${toolPath}" --update
     console.log("Initializing repository context...");
     fs.mkdirSync(this.contextDir(), { recursive: true });
 
+    this.config.triggers = this.config.triggers.length > 0 ? this.config.triggers : ["push"];
+    this.config.initialized = true;
+    this.saveConfig();
+
     // Phase 1: snapshot existing pages before AI writes
     this.runFinalize("snapshot");
 
@@ -401,7 +405,6 @@ CAIRN_HOOK=1 node "${toolPath}" --update
     this.runFinalize("finalize");
 
     this.saveLastUpdate("init");
-    this.config.initialized = true;
     this.saveConfig();
     await this.setupGitHooks();
     this.writeBoundaryFiles();
