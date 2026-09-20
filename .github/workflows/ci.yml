@@ -35,4 +35,4 @@ jobs:
       - name: Validate Python finalizer
         run: |
           python3 -m py_compile scripts/finalize.py
-          diff -u scripts/finalize.py .agents/skills/contexit/scripts/finalize.py
+          diff -u scripts/finalize.py .agents/skills/cairn/scripts/finalize.py

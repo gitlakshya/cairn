@@ -1,11 +1,11 @@
 {
-  "name": "contexit",
+  "name": "cairn",
   "version": "3.1.0",
-  "description": "contexIT — AI-powered repository wiki with OKF frontmatter and git-synchronized surgical updates",
+  "description": "Cairn — AI-powered repository wiki with OKF frontmatter and git-synchronized surgical updates",
   "type": "module",
   "main": "dist/index.js",
   "bin": {
-    "contexit": "dist/index.js"
+    "cairn": "dist/index.js"
   },
   "scripts": {
     "build": "tsc",
@@ -24,7 +24,7 @@
     "node": ">=18.0.0"
   },
   "keywords": [
-    "contexit",
+    "cairn",
     "repository",
     "context",
     "wiki",

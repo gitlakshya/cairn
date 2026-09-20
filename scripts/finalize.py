@@ -1,27 +1,27 @@
 #!/usr/bin/env python3
-"""Deterministic post-run pass over a generated .context/ directory.
+"""Deterministic post-run pass over a generated .cairn/ directory.
 
 Ported from openwiki-cc/scripts/openwiki-finalize.py (upstream: langchain-ai/openwiki v0.5.0).
 Runs in two modes:
 
-  --snapshot   Before AI writes: hash every page body, write .contexit-run.json
+  --snapshot   Before AI writes: hash every page body, write .cairn-run.json
   (default)    After AI writes: fix frontmatter, regenerate index.md,
                track cited source evidence (Grounded-Claims-lite), validate
                Mermaid diagrams, annotate broken links, stamp provenance from
-               hash diff, then delete .contexit-run.json.
+               hash diff, then delete .cairn-run.json.
 
 Grounded-Claims-lite: pages may cite evidence inline as Markdown links with a
 `repo://<path>#L<start>-L<end>` href. Each run this script backfills the page's
 `sources` frontmatter field from those citations and compares cited-range
-content hashes against `.context/.sources-state.json` (committed with the
+content hashes against `.cairn/.sources-state.json` (committed with the
 wiki). A missing path, an out-of-bounds range, or a hash that no longer
-matches gets an inline `contexit: stale evidence` comment for the agent to
+matches gets an inline `cairn: stale evidence` comment for the agent to
 resolve on the next run — deliberately one run behind, same as broken links.
 
 Mermaid diagrams: every ```mermaid fence is checked with a lightweight,
 zero-dependency validator (known diagram keyword, balanced brackets/quotes).
 A fence that fails is degraded in place to a ```text fence with a leading
-`contexit: mermaid validation failed` comment explaining why, so it renders as
+`cairn: mermaid validation failed` comment explaining why, so it renders as
 readable text instead of a broken diagram until the agent repairs it.
 
 Rules:
@@ -39,10 +39,10 @@ import sys
 import urllib.parse
 
 RESERVED = {"index.md", "INSTRUCTIONS.md"}
-GENERATED_FIELD = "contexit_generated"
+GENERATED_FIELD = "cairn_generated"
 FALLBACK_TYPE = "Reference"
-STATE_FILENAME = ".contexit-run.json"
-ACTOR = "contexit"
+STATE_FILENAME = ".cairn-run.json"
+ACTOR = "cairn"
 
 
 # ---------------------------------------------------------------------------
@@ -180,7 +180,7 @@ def pass_frontmatter(wiki):
 # ---------------------------------------------------------------------------
 
 SOURCE_RE = re.compile(r"\[(?P<text>[^\]]*)\]\((?P<href>repo://[^)\s]+)\)")
-SOURCE_MARKER_PREFIX = "contexit: stale evidence"
+SOURCE_MARKER_PREFIX = "cairn: stale evidence"
 _SOURCE_MARKER_LINE_RE = re.compile(r"^\s*<!--\s*%s[^\n]*?-->\r?$" % re.escape(SOURCE_MARKER_PREFIX))
 SOURCES_STATE_FILENAME = ".sources-state.json"
 
@@ -333,7 +333,7 @@ def pass_sources(wiki):
 # Pass: Mermaid diagram validation and self-healing degrade
 # ---------------------------------------------------------------------------
 
-MERMAID_MARKER_PREFIX = "contexit: mermaid validation failed"
+MERMAID_MARKER_PREFIX = "cairn: mermaid validation failed"
 _MERMAID_BLOCK_RE = re.compile(r"(^[ \t]*```)(mermaid|text)([ \t]*\r?\n)(.*?)(^[ \t]*```[ \t]*\r?\n?)", re.S | re.M)
 _MERMAID_KEYWORDS = (
     "graph", "flowchart", "sequenceDiagram", "classDiagram", "stateDiagram-v2",
@@ -447,7 +447,7 @@ def render_index(directory, wiki):
             entries.append((_encode(child.name), _label(child)))
 
     is_root = directory.resolve() == wiki.resolve()
-    title = "contexIT Wiki" if is_root else directory.name.replace("-", " ").title()
+    title = "Cairn Wiki" if is_root else directory.name.replace("-", " ").title()
     lines = ["# %s" % title, ""]
     lines += ["- [%s](%s)" % (_escape_label(lbl), href)
               for href, lbl in sorted(entries)]
@@ -481,7 +481,7 @@ def pass_indexes(wiki):
 # Pass 3: broken link annotation
 # ---------------------------------------------------------------------------
 
-MARKER_PREFIX = "contexit: broken internal link"
+MARKER_PREFIX = "cairn: broken internal link"
 LINK_RE = re.compile(r"\[(?P<text>[^\]]*)\]\((?P<href>[^)\s]+)\)")
 ATX_RE = re.compile(r"^(#{1,6})\s+(.*)$", re.M)
 _MARKER_LINE_RE = re.compile(r"^\s*<!--\s*%s[^\n]*?-->\r?$" % re.escape(MARKER_PREFIX))
@@ -727,7 +727,7 @@ def write_snapshot(wiki):
 
 def main():
     ap = argparse.ArgumentParser(description=__doc__)
-    ap.add_argument("wiki", nargs="?", default=".context")
+    ap.add_argument("wiki", nargs="?", default=".cairn")
     ap.add_argument("--snapshot", action="store_true",
                     help="pre-run mode: hash existing pages, write state file")
     ap.add_argument("--actor", default=ACTOR,

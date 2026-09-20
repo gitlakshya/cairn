@@ -5,7 +5,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "CONTEXIT_AGENT=codex sh hooks/context-gate.sh"
+            "command": "CAIRN_AGENT=codex sh hooks/cairn-gate.sh"
           }
         ]
       }

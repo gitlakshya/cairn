@@ -1,6 +1,6 @@
 ---
 name: mermaid-diagrams
-description: Embed Mermaid diagrams in generated .context/ wiki pages. Use whenever documenting a runtime or request flow, a call sequence, a state machine or lifecycle, a data model or entity relationships, or non-trivial control flow, since these are clearer as a diagram than as prose. Also use when a page already contains a mermaid fence, or a ```text fence a previous run degraded.
+description: Embed Mermaid diagrams in generated .cairn/ wiki pages. Use whenever documenting a runtime or request flow, a call sequence, a state machine or lifecycle, a data model or entity relationships, or non-trivial control flow, since these are clearer as a diagram than as prose. Also use when a page already contains a mermaid fence, or a ```text fence a previous run degraded.
 ---
 
 # Mermaid diagrams in generated wiki pages
@@ -21,7 +21,7 @@ Adapted from OpenWiki (`langchain-ai/openwiki`, `skills/mermaid-diagrams/SKILL.m
 - Prefer a few strong diagrams over decorating every page: one accurate diagram on the page that needs it beats a diagram forced onto every page it touches.
 - Give each diagram a one-line caption directly below it stating what it shows.
 - `scripts/finalize.py` validates every mermaid fence after your run and degrades any fence that fails to a plain ```text fence. A degraded diagram is a quality failure — follow the syntax rules below so it does not happen.
-- A diagram still counts toward the page's hard line-count limit (`.context/quickstart.md` ≤ 40 lines, all other pages ≤ 80 lines, frontmatter included) — budget for it like any other content.
+- A diagram still counts toward the page's hard line-count limit (`.cairn/quickstart.md` ≤ 40 lines, all other pages ≤ 80 lines, frontmatter included) — budget for it like any other content.
 
 ## Syntax safety
 
@@ -40,4 +40,4 @@ These rules prevent the most common render breakages. When in doubt, rephrase th
 
 - A wrong diagram is a stale claim, not existing structure to preserve. If a source change makes a diagram inaccurate, update the diagram in the same edit as the surrounding prose.
 - Do not rewrite a diagram that is still accurate. Regenerating unchanged diagrams creates diff noise.
-- If a page contains a ```text fence whose first line starts with `contexit: mermaid validation failed`, that is a diagram a previous run degraded. Fix the syntax using the reason given on that line, restore the ```mermaid fence, and delete the comment line.
+- If a page contains a ```text fence whose first line starts with `cairn: mermaid validation failed`, that is a diagram a previous run degraded. Fix the syntax using the reason given on that line, restore the ```mermaid fence, and delete the comment line.
