@@ -1,6 +1,6 @@
 {
   "name": "contexit",
-  "version": "3.0.0",
+  "version": "3.0.1",
   "description": "contexIT — AI-powered repository wiki with OKF frontmatter and git-synchronized surgical updates",
   "type": "module",
   "main": "dist/index.js",
