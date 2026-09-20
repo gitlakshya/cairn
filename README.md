@@ -40,9 +40,11 @@ Or install just the skill: `copilot skill add gitlakshya/cairn:.agents/skills/ca
 ### Codex / opencode / other AGENTS.md agents
 
 ```bash
-mkdir -p ~/.agents/skills && cp -r .agents/skills/cairn ~/.agents/skills/   # global
-# or: cp -r .agents/skills/cairn your-repo/.agents/skills/                 # per-project
+mkdir -p ~/.agents/skills && cp -rL .agents/skills/cairn ~/.agents/skills/   # global
+# or: cp -rL .agents/skills/cairn your-repo/.agents/skills/                 # per-project
 ```
+`scripts/finalize.py` under the skill is a symlink into this checkout's own `scripts/`; `-L` dereferences it into a standalone copy so the finalizer still resolves once the skill is copied elsewhere. A plain `cp -r` reproduces the symlink literally and it will point outside the copy.
+
 Invoke with `$cairn` (Codex), the `skill` tool (opencode), or by asking to "update the cairn wiki".
 
 ## Usage

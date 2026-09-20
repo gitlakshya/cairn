@@ -1,12 +1,34 @@
 name: Sync Cairn wiki
 
-# Copy into .github/workflows/cairn-update.yml and pin a checked-out tag/SHA.
-# Requires ANTHROPIC_API_KEY (or set CAIRN_AGENT and its provider's key/session
-# if wiring another host — see hooks/cairn-gate.sh).
+# Copy into .github/workflows/cairn-update.yml in the REPO WHOSE DOCS you want
+# Cairn to maintain (a "target" repo — this file does not run inside the Cairn
+# repo itself). It:
+#   1. checks out the target repo (this workflow's own repo);
+#   2. installs the coding-agent CLI Cairn drives (Claude Code by default);
+#   3. checks out Cairn itself into .cairn-tool/ and builds it;
+#   4. runs Cairn's --update against the target repo's working tree.
+#
+# Requires ANTHROPIC_API_KEY (Claude Code). Set CAIRN_AGENT and swap the runner
+# step below to wire another host — see hooks/cairn-gate.sh for the equivalents.
+#
+# CAIRN_REF defaults to `main`; pin it to a specific released tag or commit SHA
+# you've reviewed before relying on this in CI.
 
 on:
   push:
     branches: [main]
+    # Belt-and-suspenders: GITHUB_TOKEN pushes (used below by the auto-commit
+    # step) don't retrigger push-triggered workflows on GitHub, so this alone
+    # won't loop — but skip explicitly in case this job is ever repointed at a
+    # PAT/App token that would otherwise retrigger it.
+    paths-ignore:
+      - ".cairn/**"
+      - "CLAUDE.md"
+      - "AGENTS.md"
+      - ".cursorrules"
+
+env:
+  CAIRN_REF: main # pin to a reviewed Cairn tag/commit SHA before production use
 
 permissions:
   contents: write
@@ -15,21 +37,33 @@ jobs:
   sync-wiki:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout target repo
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: 20
-          cache: npm
 
-      - run: npm ci && npm run build
+      - name: Install Claude Code CLI
+        run: npm install -g @anthropic-ai/claude-code
+
+      - name: Checkout Cairn
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          repository: gitlakshya/cairn
+          ref: ${{ env.CAIRN_REF }}
+          path: .cairn-tool
+
+      - name: Build Cairn
+        run: cd .cairn-tool && npm ci && npm run build
 
       - name: Sync wiki
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
-        run: npm run sync
+        run: node .cairn-tool/dist/index.js --update
 
-      - uses: stefanzweifel/git-auto-commit-action@v5
+      - uses: stefanzweifel/git-auto-commit-action@b863ae1933cb653a53c021fe36dbb774e1fb9403 # v5
         with:
           commit_message: "chore: sync cairn wiki"
           file_pattern: ".cairn/ CLAUDE.md AGENTS.md .cursorrules"
+

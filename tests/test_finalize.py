@@ -195,6 +195,15 @@ class FullRunIdempotenceTests(FinalizeTestCase):
         finalize.pass_links(self.wiki)
         finalize.pass_provenance(self.wiki, actor, at)
 
+    def _snapshot_wiki(self):
+        # All persisted state, not just *.md — a regression in .sources-state.json
+        # (or any other sidecar) must fail this test just as loudly as a body diff.
+        return {
+            p.relative_to(self.wiki).as_posix(): p.read_text(encoding="utf-8")
+            for p in self.wiki.rglob("*")
+            if p.is_file()
+        }
+
     def test_second_run_is_a_no_op(self):
         self.write_source("src/app.ts", ["export const x = 1;"])
         self.write(
@@ -204,11 +213,11 @@ class FullRunIdempotenceTests(FinalizeTestCase):
         )
         finalize.write_snapshot(self.wiki)
         self._run_full()
-        first_pass = {p.name: p.read_text(encoding="utf-8") for p in self.wiki.glob("*.md")}
+        first_pass = self._snapshot_wiki()
 
         finalize.write_snapshot(self.wiki)
         self._run_full()
-        second_pass = {p.name: p.read_text(encoding="utf-8") for p in self.wiki.glob("*.md")}
+        second_pass = self._snapshot_wiki()
 
         self.assertEqual(first_pass, second_pass)
 

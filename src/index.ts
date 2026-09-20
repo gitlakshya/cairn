@@ -324,12 +324,12 @@ Wiki in \`.cairn/\` — start at \`.cairn/quickstart.md\`.
 - Refresh: \`/cairn:wiki update\` or \`npm run sync\`
 
 ## Config
-Triggers: ${this.config.triggers.join(", ")} | Config: \`.cairn.json\`
+Triggers: ${this.config.triggers.join(", ")} | Config: \`.cairn/cairn.json\`
 `;
     const agentsMd = `# Cairn
 Wiki: \`.cairn/\` (entry: quickstart.md)
 Refresh: \`/cairn:wiki update\` or \`npm run sync\`
-Config: \`.cairn.json\`
+Config: \`.cairn/cairn.json\`
 `;
     const cursorRules = `Read .cairn/quickstart.md for repo overview.
 Refresh docs: /cairn:wiki update
@@ -383,8 +383,7 @@ CAIRN_HOOK=1 node "${toolPath}" --update
     fs.mkdirSync(this.contextDir(), { recursive: true });
 
     this.config.triggers = this.config.triggers.length > 0 ? this.config.triggers : ["push"];
-    this.config.initialized = true;
-    this.saveConfig();
+    this.saveConfig();  // not yet marked initialized — a crash before the end leaves init retriable
 
     // Phase 1: snapshot existing pages before AI writes
     this.runFinalize("snapshot");
@@ -405,6 +404,7 @@ CAIRN_HOOK=1 node "${toolPath}" --update
     this.runFinalize("finalize");
 
     this.saveLastUpdate("init");
+    this.config.initialized = true;  // only now: generation + finalize both completed
     this.saveConfig();
     await this.setupGitHooks();
     this.writeBoundaryFiles();
@@ -502,7 +502,7 @@ Generated pages (in .cairn/):
   quickstart.md   ≤40 lines  — entry point
   + thematic pages based on repo complexity (max 8 total)
 
-Config: .cairn.json
+Config: .cairn/cairn.json
 `);
   } else {
     console.log('Unknown command. Run with --help.');
