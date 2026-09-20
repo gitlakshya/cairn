@@ -12,24 +12,47 @@ Generates a compact wiki in `.context/` — thematic pages averaging ≤80 lines
 npm install && npm run build
 ```
 
-Add the slash command to Claude Code:
-```bash
-# project scope
-mkdir -p .claude/commands && cp commands/wiki.md .claude/commands/contextit.md
+contexIT is a self-contained **Claude Code plugin** — `.claude-plugin/` + `commands/wiki.md` + `hooks/` live at the repo root, so the same checkout also installs directly as a **Copilot CLI plugin** (it reads the same `.claude-plugin/plugin.json` / `marketplace.json`). Codex and other `AGENTS.md`-style agents pick up the twin skill under `.agents/skills/contextit/`.
 
-# or global scope
-mkdir -p ~/.claude/commands && cp commands/wiki.md ~/.claude/commands/contextit.md
+### Claude Code
+
 ```
+/plugin marketplace add gitlakshya/contexit
+/plugin install contextit@contexit
+```
+Then `/contextit:wiki` is available in every project. Manual install (bare `/wiki`, no marketplace):
+```bash
+mkdir -p .claude/commands && cp commands/wiki.md .claude/commands/wiki.md
+```
+
+### GitHub Copilot CLI
+
+```
+copilot plugin marketplace add gitlakshya/contexit
+copilot plugin install contextit@contexit
+```
+Or install just the skill: `copilot skill add gitlakshya/contexit:.agents/skills/contextit`.
+
+### Codex / opencode / other AGENTS.md agents
+
+```bash
+mkdir -p ~/.agents/skills && cp -r .agents/skills/contextit ~/.agents/skills/   # global
+# or: cp -r .agents/skills/contextit your-repo/.agents/skills/                 # per-project
+```
+Invoke with `$contextit` (Codex), the `skill` tool (opencode), or by asking to "update the contexit wiki".
 
 ## Usage
 
-### Slash command (in Claude Code)
+### Claude Code / Copilot CLI
 ```
 /contextit:wiki           # auto: init if new, update if exists
 /contextit:wiki init      # force full generation
 /contextit:wiki update    # force surgical update
 /contextit:wiki update focus on the new auth module
 ```
+
+### Codex / opencode
+Ask to "initialize" or "update" the contexit docs; extra wording rides along as an additional instruction.
 
 ### CLI (for git hooks / CI)
 ```bash
@@ -38,6 +61,18 @@ npm run sync            # update wiki
 npm run sync -- --instruction "focus on new auth module"
 npm run configure-triggers -- push,merge
 ```
+
+## Auto-run as a hook (other coding agents)
+
+`hooks/context-gate.sh` is host-agnostic: it reproduces the wiki's no-op check in pure shell (zero tokens) and spawns the configured agent headlessly only when source actually changed. Wiring ships pre-configured:
+
+| Host | Wiring | Runner |
+|------|--------|--------|
+| Claude Code | `hooks/hooks.json` (`Stop` event, bundled with the plugin) | `claude -p '/contextit:wiki update'` |
+| Copilot CLI | same `hooks/hooks.json` (Copilot CLI reads the identical plugin hook path) | `copilot -p 'update the contexit wiki'` |
+| Codex | `.codex/hooks.json` (`Stop` event) | `codex exec 'update the contexit wiki'` |
+
+Set `CONTEXTIT_AGENT=claude|codex|copilot` to pick the runner manually, e.g. when wiring the script into another host's hook system. The `CONTEXTIT_HOOK=1` guard prevents the headless run from re-triggering its own hook.
 
 ## Generated pages
 
@@ -81,10 +116,32 @@ Git hooks are auto-created in `.git/hooks/` and guarded by `hooks/context-gate.s
    - Deletes transient `.contextit-run.json`
 5. Writes `.context/.last-update.json` with HEAD + timestamp
 
-Uses whatever LLM you have configured in Claude Code — no API keys needed in contexIT.
+Uses whatever LLM you have configured in your coding agent (Claude Code, Copilot CLI, Codex, opencode, …) — no API keys needed in contexIT itself.
+
+## Repository layout
+
+```
+.claude-plugin/
+  plugin.json         # Claude Code + Copilot CLI plugin manifest
+  marketplace.json    # single-plugin marketplace (source: ./)
+commands/
+  wiki.md             # Claude Code / Copilot CLI slash command → /contextit:wiki
+hooks/
+  hooks.json          # Stop-hook wiring shared by Claude Code + Copilot CLI
+  context-gate.sh     # shell no-op gate; dispatches to claude|codex|copilot
+.codex/
+  hooks.json          # Codex Stop-hook wiring → the same gate
+.agents/skills/contextit/
+  SKILL.md            # skill for Codex, opencode, and other AGENTS.md hosts
+  scripts/finalize.py # byte-identical twin so a standalone skill install works
+scripts/
+  finalize.py         # canonical deterministic post-processor
+src/
+  index.ts            # CLI (init/update/sync/configure-triggers)
+```
 
 ## Requirements
 
 - Node.js ≥18
 - Python 3 (for `scripts/finalize.py`)
-- Claude Code installed (for AI generation; falls back to placeholder without it)
+- A coding agent installed for AI generation (Claude Code, Copilot CLI, or Codex); falls back to placeholder content without one

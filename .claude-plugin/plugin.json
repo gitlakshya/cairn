@@ -1,0 +1,15 @@
+{
+  "name": "contextit",
+  "displayName": "contexIT",
+  "description": "AI-powered repository wiki that stays in sync with your code — thematic Markdown pages grounded in git history, updated surgically as the repo changes.",
+  "version": "3.0.0",
+  "author": {
+    "name": "Lakshya Vashisth"
+  },
+  "homepage": "https://github.com/gitlakshya/contexit",
+  "repository": "https://github.com/gitlakshya/contexit",
+  "license": "MIT",
+  "keywords": ["wiki", "documentation", "context", "okf", "codex", "copilot"],
+  "commands": ["./commands/"],
+  "hooks": "./hooks/hooks.json"
+}

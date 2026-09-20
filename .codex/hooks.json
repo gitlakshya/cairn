@@ -1,0 +1,14 @@
+{
+  "hooks": {
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "CONTEXTIT_AGENT=codex sh hooks/context-gate.sh"
+          }
+        ]
+      }
+    ]
+  }
+}

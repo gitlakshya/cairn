@@ -1,7 +1,11 @@
 #!/usr/bin/env sh
 # context-gate.sh — spawn the contexIT wiki refresh only when source actually changed.
 #
-# Port of openwiki-cc/hooks/openwiki-gate.sh (upstream: langchain-ai/openwiki v0.5.0).
+# Port of langchain-ai/openwiki v0.5.0).
+#
+# Host-agnostic: set CONTEXTIT_AGENT to pick the headless runner (claude | codex | copilot).
+# Wired automatically by hooks/hooks.json (Claude Code + Copilot CLI Stop hook) and
+# .codex/hooks.json (Codex Stop hook).
 
 set -eu
 
@@ -28,4 +32,14 @@ if [ -n "$last" ] && [ -z "$dirty" ]; then
     [ -z "$outside" ] && exit 0
 fi
 
-CONTEXTIT_HOOK=1 setsid claude -p '/contextit:wiki update' --permission-mode acceptEdits >/dev/null 2>&1 &
+case "${CONTEXTIT_AGENT:-claude}" in
+    codex)
+        CONTEXTIT_HOOK=1 setsid codex exec 'update the contexit wiki (.context/)' >/dev/null 2>&1 &
+        ;;
+    copilot)
+        CONTEXTIT_HOOK=1 setsid copilot -p 'update the contexit wiki (.context/)' --allow-tool='shell,write,read' >/dev/null 2>&1 &
+        ;;
+    *)
+        CONTEXTIT_HOOK=1 setsid claude -p '/contextit:wiki update' --permission-mode acceptEdits >/dev/null 2>&1 &
+        ;;
+esac
