@@ -6,6 +6,8 @@ AI-powered repository wiki that stays in sync with your code.
 
 Generates a compact wiki in `.context/` — thematic pages averaging ≤80 lines each, with OKF frontmatter, grounded in your actual files and git history. Updates surgically (only pages affected by recent changes). No-ops when nothing changed.
 
+Material claims can cite exact evidence (`repo://path#L10-L42`); `scripts/finalize.py` tracks and hashes those citations and flags them when the cited source drifts (Grounded-Claims-lite). Diagrams are validated too — a broken Mermaid fence degrades to readable text with a repair note instead of shipping broken.
+
 ## Install
 
 ```bash
@@ -89,6 +91,20 @@ Set `contexit_AGENT=claude|codex|copilot` to pick the runner manually, e.g. when
 
 Entry point: `.context/quickstart.md`
 
+## Grounded-Claims-lite
+
+Pages may cite material claims inline as `[text](repo://path/to/file#L10-L42)` links. On every run, `scripts/finalize.py`:
+
+- backfills the page's `sources` frontmatter from those citations (never hand-author this field);
+- hashes each cited line range and compares it against `.context/.sources-state.json` (committed with the wiki);
+- inserts a `<!-- contexit: stale evidence - ... -->` comment when a citation's target is missing, its line range no longer fits the file, or its content has changed since last verified.
+
+The next run's agent finds that comment, re-verifies the claim against current source, and removes it — the same repair loop already used for broken internal links.
+
+## Diagrams
+
+Agents add ```mermaid fences (sequence, state, flow, ER) where they clarify a runtime flow, lifecycle, or data model better than prose, following the dedicated `skills/mermaid-diagrams/SKILL.md` skill (diagram-type selection, grounding discipline, Mermaid syntax-safety rules — adapted from `langchain-ai/openwiki`'s skill of the same name). `scripts/finalize.py` validates every fence with a lightweight, zero-dependency check (known diagram keyword, balanced brackets/quotes). A fence that fails is degraded in place to a ```text fence with a `contexit: mermaid validation failed` comment explaining why, so it renders as readable text instead of a broken diagram until an agent repairs it on the next run.
+
 ## User scope override
 
 Create `.context/INSTRUCTIONS.md` to guide generation. This file is never auto-modified.
@@ -107,9 +123,11 @@ Git hooks are auto-created in `.git/hooks/` and guarded by `hooks/context-gate.s
 
 1. Collects git evidence (status, HEAD, diff summary, recent commits)
 2. **Snapshot** — `scripts/finalize.py .context --snapshot` hashes every existing page body
-3. AI writes page content (body only, no frontmatter)
+3. AI writes page content (body only, no frontmatter), citing material claims as `repo://` links and adding Mermaid diagrams where they clarify a flow
 4. **Finalize** — `scripts/finalize.py .context` deterministically:
    - Backfills OKF frontmatter on any page missing it
+   - Extracts `repo://` citations into each page's `sources` field, hashes cited ranges, and flags drifted/missing evidence (Grounded-Claims-lite)
+   - Validates Mermaid fences and degrades broken ones to commented `text` fences
    - Regenerates `index.md` for the wiki root and subdirectories
    - Annotates broken internal links
    - Compares body hashes: changed pages stamped with `generated: { by, at }`; unchanged pages keep their original provenance
@@ -131,6 +149,8 @@ hooks/
   context-gate.sh     # shell no-op gate; dispatches to claude|codex|copilot
 .codex/
   hooks.json          # Codex Stop-hook wiring → the same gate
+skills/mermaid-diagrams/
+  SKILL.md            # diagram-type selection, discipline, syntax-safety rules
 .agents/skills/contexit/
   SKILL.md            # skill for Codex, opencode, and other AGENTS.md hosts
   scripts/finalize.py # byte-identical twin so a standalone skill install works

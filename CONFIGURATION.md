@@ -4,7 +4,7 @@ Config file: `.contexit.json` (auto-created by `npm run init`)
 
 ```json
 {
-  "version": "3.0.0",
+  "version": "3.1.0",
   "triggers": ["push"],
   "contextPath": ".context",
   "initialized": true

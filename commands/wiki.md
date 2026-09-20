@@ -120,7 +120,7 @@ Adapted from OpenWiki `v0.5.0` `src/agent/repository-prompts.ts` (`createReposit
 (a) DeepAgents' virtual filesystem → native Read/Write/Edit/Glob/Grep/Bash on real repo paths;
 (b) Upstream's durable page-job queue → plan held in orchestrator context plus one Task subagent per page (or sequential on hosts without Task);
 (c) Upstream's prepare/finalize harness → Step 2's `--snapshot` and Step 3b;
-(d) Claims subsystem out of scope — workers write pages directly.
+(d) Upstream's full Claims subsystem (confirm/revise/retract lifecycle, per-claim worker sync) is out of scope — instead workers cite evidence inline as `repo://` links and `scripts/finalize.py` deterministically tracks/hashes/flags them (Grounded-Claims-lite, see Step 3b).
 
 ### Phase 1 — Planning
 
@@ -191,11 +191,19 @@ On update, preserve unknown producer-defined frontmatter fields unless factually
 
 Research deeply enough to explain: important responsibilities, entrypoints, mechanisms and control flow, relationships, state/lifecycle, invariants and failure modes, extension points, configuration and operations — focused on what actually matters for this topic. Follow evidence beyond seed paths through callers, callees, state owners, integration boundaries, and representative tests as required. Do not turn the page into a source-file inventory.
 
+**[our addition] Grounded-Claims-lite citations.** For material factual claims (behavior, invariants, data flow, config, failure semantics — not obvious prose), cite the exact evidence inline as a Markdown link with a `repo://<path>#L<start>-L<end>` href, e.g. `the handler validates the token before dispatch ([source](repo://src/auth.ts#L40-L58))`. `scripts/finalize.py` deterministically extracts these into the page's `sources` frontmatter field and hashes each cited range; do not author `sources` yourself. Cite line ranges only when they materially ground a claim — do not cite every code reference.
+
+**[our addition] Diagrams.** Before adding a diagram, read the mermaid-diagrams skill at `skills/mermaid-diagrams/SKILL.md` (repo root — adapted from `langchain-ai/openwiki`'s `skills/mermaid-diagrams/SKILL.md`) and follow its diagram-type selection, discipline, and syntax-safety rules. If that path does not exist, fall back to: add a ```mermaid fence only when it clarifies a runtime flow, lifecycle, or data model better than prose, ground it strictly in inspected source, and keep labels free of reserved Mermaid words and unescaped punctuation.
+
 Write only `${job.path}`. Do not create, edit, or delete another wiki page.
 
 `${ job.path === ".context/quickstart.md" ? "The complete planned page map is: " + JSON.stringify(allPages.map(({path, title, purpose}) => ({path, title, purpose})), null, 2) + " Use it to produce a compact task-routing map that links major domains." : "" }`
 
 **[adapted]** If you find an HTML comment starting `"contexit: broken internal link"`, repair the href to restore the target page using the reason in the comment, then delete the comment.
+
+**[our addition]** If you find an HTML comment starting `"contexit: stale evidence"`, re-verify the cited claim against current source, update the surrounding prose (and the `repo://` line range) to match, then delete the comment.
+
+**[our addition]** If you find a ```text fence whose first line starts with `"contexit: mermaid validation failed"`, fix the diagram (or remove it if it no longer earns its place) and delete the comment line; restore the fence to ```mermaid once it is valid.
 
 **[adapted]** Do not read secrets (`.env`, keys, credentials). Do not create or edit agent instruction files (`AGENTS.md`, `CLAUDE.md`) during this run.
 
@@ -211,7 +219,7 @@ Upstream logic lives in `src/agent/wiki-finalizer.ts`, `src/okf/generated-proven
 python3 <the Step 2 path> .context --actor <the model you are running as>
 ```
 
-This regenerates directory `index.md` files (root carries `okf_version: "0.2"`), annotates broken internal links, and reconciles generated provenance: pages whose body changed since the Step 2 snapshot are stamped `generated: { by: <actor>, at: <now> }` and lose any legacy `timestamp`; unchanged pages keep (or are restored to) their prior stamp. Deletes `.contexit-run.json`. Always exits 0. Never deletes content.
+This regenerates directory `index.md` files (root carries `okf_version: "0.2"`), backfills each page's `sources` frontmatter from its `repo://` citations and flags any whose cited range no longer matches `.context/.sources-state.json` with an inline `contexit: stale evidence` comment (**[our addition]** Grounded-Claims-lite, a lighter-weight analogue of upstream's Claims subsystem), degrades unrecognized/malformed ```mermaid fences to commented ```text with a `contexit: mermaid validation failed` reason (**[our addition]**, mirrors upstream's default zero-dependency Mermaid check), annotates broken internal links, and reconciles generated provenance: pages whose body changed since the Step 2 snapshot are stamped `generated: { by: <actor>, at: <now> }` and lose any legacy `timestamp`; unchanged pages keep (or are restored to) their prior stamp. Deletes `.contexit-run.json`. Always exits 0. Never deletes content.
 
 Run it AFTER all wiki work. It is idempotent: running it twice on unchanged files leaves every wiki file byte-identical.
 

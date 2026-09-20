@@ -166,11 +166,19 @@ On update, preserve unknown producer-defined frontmatter fields unless factually
 
 Research deeply enough to explain: important responsibilities, entrypoints, mechanisms and control flow, relationships, state/lifecycle, invariants and failure modes, extension points, configuration and operations — focused on what actually matters for this topic. Follow evidence beyond seed paths through callers, callees, state owners, integration boundaries, and representative tests as required. Do not turn the page into a source-file inventory.
 
+**Grounded-Claims-lite citations.** For material factual claims (behavior, invariants, data flow, config, failure semantics — not obvious prose), cite the exact evidence inline as a Markdown link with a `repo://<path>#L<start>-L<end>` href, e.g. `the handler validates the token before dispatch ([source](repo://src/auth.ts#L40-L58))`. `scripts/finalize.py` deterministically extracts these into the page's `sources` frontmatter field and hashes each cited range; do not author `sources` yourself. Cite line ranges only when they materially ground a claim — do not cite every code reference.
+
+**Diagrams.** Before adding a diagram, read the mermaid-diagrams skill at `skills/mermaid-diagrams/SKILL.md` (repo root) and follow its diagram-type selection, discipline, and syntax-safety rules. If that path does not exist (e.g. a standalone `.agents/skills/contexit`-only install with no sibling repo checkout), fall back to: add a ```mermaid fence only when it clarifies a runtime flow, lifecycle, or data model better than prose, ground it strictly in inspected source, and keep labels free of reserved Mermaid words and unescaped punctuation.
+
 Write only the one page you own per pass. Do not create, edit, or delete another wiki page in the same pass.
 
 For `.context/quickstart.md`, use the complete planned page map (path, title, purpose for every page) to produce a compact task-routing map that links major domains.
 
 If you find an HTML comment starting `"contexit: broken internal link"`, repair the href to restore the target page using the reason in the comment, then delete the comment.
+
+If you find an HTML comment starting `"contexit: stale evidence"`, re-verify the cited claim against current source, update the surrounding prose (and the `repo://` line range) to match, then delete the comment.
+
+If you find a ```text fence whose first line starts with `"contexit: mermaid validation failed"`, fix the diagram (or remove it if it no longer earns its place) and delete the comment line; restore the fence to ```mermaid once it is valid.
 
 Do not read secrets (`.env`, keys, credentials). Do not create or edit agent instruction files (`AGENTS.md`, `CLAUDE.md`) during this run.
 
@@ -180,7 +188,7 @@ Do not read secrets (`.env`, keys, credentials). Do not create or edit agent ins
 python3 <the Step 2 path> .context --actor <the model you are running as>
 ```
 
-This regenerates directory `index.md` files (root carries `okf_version: "0.2"`), annotates broken internal links, and reconciles generated provenance: pages whose body changed since the Step 2 snapshot are stamped `generated: { by: <actor>, at: <now> }` and lose any legacy `timestamp`; unchanged pages keep (or are restored to) their prior stamp. Deletes `.contexit-run.json`. Always exits 0. Never deletes content.
+This regenerates directory `index.md` files (root carries `okf_version: "0.2"`), backfills each page's `sources` frontmatter from its `repo://` citations and flags any whose cited range no longer matches `.context/.sources-state.json` with an inline `contexit: stale evidence` comment (Grounded-Claims-lite), degrades unrecognized/malformed ```mermaid fences to commented ```text with a `contexit: mermaid validation failed` reason, annotates broken internal links, and reconciles generated provenance: pages whose body changed since the Step 2 snapshot are stamped `generated: { by: <actor>, at: <now> }` and lose any legacy `timestamp`; unchanged pages keep (or are restored to) their prior stamp. Deletes `.contexit-run.json`. Always exits 0. Never deletes content.
 
 Run it AFTER all wiki work. It is idempotent: running it twice on unchanged files leaves every wiki file byte-identical.
 

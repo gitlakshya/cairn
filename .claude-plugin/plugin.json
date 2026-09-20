@@ -1,8 +1,7 @@
 {
   "name": "contexit",
-  "displayName": "contexIT",
   "description": "AI-powered repository wiki that stays in sync with your code — thematic Markdown pages grounded in git history, updated surgically as the repo changes.",
-  "version": "3.0.1",
+  "version": "3.1.0",
   "author": {
     "name": "Lakshya Vashisth"
   },
