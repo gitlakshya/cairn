@@ -180,7 +180,7 @@ If you find an HTML comment starting `"cairn: stale evidence"`, re-verify the ci
 
 If you find a ```text fence whose first line starts with `"cairn: mermaid validation failed"`, fix the diagram (or remove it if it no longer earns its place) and delete the comment line; restore the fence to ```mermaid once it is valid.
 
-Do not read secrets (`.env`, keys, credentials). Do not create or edit agent instruction files (`AGENTS.md`, `CLAUDE.md`) during this run.
+Do not read secrets (`.env`, keys, credentials). Do not create or edit `AGENTS.md`, `CLAUDE.md`, or `.cursorrules` yourself — these are maintained separately.
 
 ## Step 3b — Finalize wiki (deterministic, run AFTER all wiki work)
 

@@ -22,6 +22,7 @@ last=$([ -f "$meta" ] && sed -n 's/.*"gitHead":[[:space:]]*"\([^"]*\)".*/\1/p' "
 
 dirty=$(git status --short --untracked-files=all \
   | grep -v "${CAIRN_DIR}/.last-update.json$" \
+  | grep -v "${CAIRN_DIR}/.run-lock.json$" \
   | grep -v ".cairn-run.json$" \
   || true)
 

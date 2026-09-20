@@ -184,6 +184,76 @@ class IndexTests(FinalizeTestCase):
         self.assertIn("quickstart.md", text)
 
 
+class BoundaryFilesTests(FinalizeTestCase):
+    def test_creates_missing_boundary_files(self):
+        finalize.pass_boundary_files(self.wiki)
+        for name in ("CLAUDE.md", "AGENTS.md", ".cursorrules"):
+            text = (self.tmp / name).read_text(encoding="utf-8")
+            self.assertIn("<!-- cairn:start -->", text)
+            self.assertIn(".cairn/quickstart.md", text)
+            self.assertIn("<!-- cairn:end -->", text)
+
+    def test_appends_to_existing_file_without_marker(self):
+        (self.tmp / "AGENTS.md").write_text("# My repo\nCustom agent notes.\n", encoding="utf-8")
+        finalize.pass_boundary_files(self.wiki)
+        text = (self.tmp / "AGENTS.md").read_text(encoding="utf-8")
+        self.assertIn("Custom agent notes.", text)
+        self.assertIn("<!-- cairn:start -->", text)
+
+    def test_leaves_file_untouched_once_marker_present(self):
+        finalize.pass_boundary_files(self.wiki)
+        (self.tmp / "AGENTS.md").write_text(
+            "# Before\n<!-- cairn:start -->\nstale content\n<!-- cairn:end -->\n# After\n",
+            encoding="utf-8",
+        )
+        finalize.pass_boundary_files(self.wiki)
+        text = (self.tmp / "AGENTS.md").read_text(encoding="utf-8")
+        # Self-gating: once the marker exists, the file is left completely alone —
+        # even stale content between the markers is not refreshed automatically.
+        self.assertEqual(
+            text,
+            "# Before\n<!-- cairn:start -->\nstale content\n<!-- cairn:end -->\n# After\n",
+        )
+
+    def test_idempotent(self):
+        finalize.pass_boundary_files(self.wiki)
+        first = (self.tmp / "CLAUDE.md").read_text(encoding="utf-8")
+        finalize.pass_boundary_files(self.wiki)
+        second = (self.tmp / "CLAUDE.md").read_text(encoding="utf-8")
+        self.assertEqual(first, second)
+
+
+class CLIBoundaryFilesAreSelfGatingTests(FinalizeTestCase):
+    """No --init flag or caller-known mode exists: main() always calls pass_boundary_files,
+    and the pass itself decides per-file whether there's anything to do based on the marker."""
+
+    def _run_cli(self):
+        import subprocess
+        subprocess.run(
+            [sys.executable, str(FINALIZE_PATH), str(self.wiki)],
+            cwd=self.tmp, check=True, capture_output=True, text=True,
+        )
+
+    def test_first_run_bootstraps_boundary_files(self):
+        self.write("quickstart.md", "# Quickstart\n")
+        self._run_cli()
+        for name in ("CLAUDE.md", "AGENTS.md", ".cursorrules"):
+            text = (self.tmp / name).read_text(encoding="utf-8")
+            self.assertIn("<!-- cairn:start -->", text)
+
+    def test_later_run_never_touches_an_already_bootstrapped_file(self):
+        self.write("quickstart.md", "# Quickstart\n")
+        self._run_cli()
+        # Simulate a repo owner editing the file after bootstrap (e.g. adding their
+        # own notes above/below the block) — a later run must not revert or resync it.
+        claude_md = self.tmp / "CLAUDE.md"
+        claude_md.write_text(claude_md.read_text(encoding="utf-8") + "\nMy own notes.\n", encoding="utf-8")
+        before = claude_md.read_text(encoding="utf-8")
+        self._run_cli()
+        after = claude_md.read_text(encoding="utf-8")
+        self.assertEqual(before, after)
+
+
 class FullRunIdempotenceTests(FinalizeTestCase):
     """The headline claim in scripts/finalize.py's docstring: run twice, no diff."""
 
@@ -194,15 +264,22 @@ class FullRunIdempotenceTests(FinalizeTestCase):
         finalize.pass_indexes(self.wiki)
         finalize.pass_links(self.wiki)
         finalize.pass_provenance(self.wiki, actor, at)
+        finalize.pass_boundary_files(self.wiki)
 
     def _snapshot_wiki(self):
         # All persisted state, not just *.md — a regression in .sources-state.json
         # (or any other sidecar) must fail this test just as loudly as a body diff.
-        return {
+        wiki_files = {
             p.relative_to(self.wiki).as_posix(): p.read_text(encoding="utf-8")
             for p in self.wiki.rglob("*")
             if p.is_file()
         }
+        boundary_files = {
+            name: (self.tmp / name).read_text(encoding="utf-8")
+            for name in ("CLAUDE.md", "AGENTS.md", ".cursorrules")
+            if (self.tmp / name).exists()
+        }
+        return {**wiki_files, **boundary_files}
 
     def test_second_run_is_a_no_op(self):
         self.write_source("src/app.ts", ["export const x = 1;"])

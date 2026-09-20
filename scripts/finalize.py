@@ -24,6 +24,15 @@ A fence that fails is degraded in place to a ```text fence with a leading
 `cairn: mermaid validation failed` comment explaining why, so it renders as
 readable text instead of a broken diagram until the agent repairs it.
 
+Boundary files: CLAUDE.md, AGENTS.md, and .cursorrules at the repo root each
+get a small managed `<!-- cairn:start -->...<!-- cairn:end -->` block pointing
+readers at `<wiki>/quickstart.md` first. Self-gating, not caller-gated: a file
+missing the marker gets it created/appended; a file that already carries the
+marker is left completely untouched. So the block is written once per file,
+automatically, on every finalize call — no `--init`-style flag or caller mode
+coordination needed. Delete the marked block by hand to have it re-bootstrapped
+on the next run.
+
 Rules:
   1. Never fail — always exits 0.
   2. Be idempotent — running twice on unchanged files produces no diff.
@@ -693,6 +702,52 @@ def pass_provenance(wiki, actor, at):
 
 
 # ---------------------------------------------------------------------------
+# Pass: agent boundary files (CLAUDE.md / AGENTS.md / .cursorrules)
+# ---------------------------------------------------------------------------
+
+BOUNDARY_MARK_START = "<!-- cairn:start -->"
+BOUNDARY_MARK_END = "<!-- cairn:end -->"
+BOUNDARY_FILES = ("CLAUDE.md", "AGENTS.md", ".cursorrules")
+
+
+def _boundary_block(wiki_rel, filename):
+    quickstart = "%s/quickstart.md" % wiki_rel.rstrip("/")
+    if filename == ".cursorrules":
+        return "Read %s first, before any other repo exploration.\nRefresh docs: /cairn:wiki update" % quickstart
+    return (
+        "# Cairn\nWiki: `%s` \u2014 read `%s` first, before any other repo exploration.\n"
+        "Refresh: `/cairn:wiki update` or `npm run sync`" % (wiki_rel, quickstart)
+    )
+
+
+def _upsert_boundary_file(target, block):
+    # Self-gating: once a file carries the marker, it's left completely alone
+    # forever — bootstrap once, never rewrite, no --init flag / caller mode
+    # coordination required. Delete the marked block by hand to re-bootstrap it.
+    managed = "%s\n%s\n%s\n" % (BOUNDARY_MARK_START, block, BOUNDARY_MARK_END)
+    if not target.exists():
+        return write_text(target, managed)
+    existing = read_text(target)
+    if existing is None:
+        return False
+    if BOUNDARY_MARK_START in existing and BOUNDARY_MARK_END in existing:
+        return False
+    sep = "" if existing.endswith("\n\n") else ("\n" if existing.endswith("\n") else "\n\n")
+    return write_text(target, existing + sep + managed)
+
+
+def pass_boundary_files(wiki):
+    repo_root = wiki.resolve().parent
+    wiki_rel = wiki.as_posix()
+    changed = []
+    for filename in BOUNDARY_FILES:
+        block = _boundary_block(wiki_rel, filename)
+        if _upsert_boundary_file(repo_root / filename, block):
+            changed.append(str(repo_root / filename))
+    return changed
+
+
+# ---------------------------------------------------------------------------
 # Snapshot mode (--snapshot): run BEFORE AI writes pages
 # ---------------------------------------------------------------------------
 
@@ -753,6 +808,7 @@ def main():
     idx = pass_indexes(wiki)
     lnk = pass_links(wiki)
     prov = pass_provenance(wiki, actor, at)
+    bnd = pass_boundary_files(wiki)
 
     sp = state_path(wiki)
     try:
@@ -760,9 +816,9 @@ def main():
     except OSError:
         pass
 
-    print("finalize: frontmatter %d, sources %d, mermaid %d, indexes %d, links %d, provenance %d"
-          % (len(fm), len(src), len(mer), len(idx), len(lnk), len(prov)))
-    for p in fm + src + mer + idx + lnk + prov:
+    print("finalize: frontmatter %d, sources %d, mermaid %d, indexes %d, links %d, provenance %d, boundary %d"
+          % (len(fm), len(src), len(mer), len(idx), len(lnk), len(prov), len(bnd)))
+    for p in fm + src + mer + idx + lnk + prov + bnd:
         print("  + %s" % p)
     return 0
 

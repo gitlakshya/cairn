@@ -2,7 +2,7 @@
 
 AI-powered repository wiki that stays in sync with your code.
 
-[MIT licensed](LICENSE)
+[MIT licensed](LICENSE) · [Changelog](CHANGELOG.md)
 
 ## What it does
 
@@ -94,6 +94,18 @@ Set `cairn_AGENT=claude|codex|copilot` to pick the runner manually, e.g. when wi
 | *(others)* | ≤80 | components, testing, deployment… |
 
 Entry point: `.cairn/quickstart.md`
+
+## Agent boundary files
+
+Every run of `scripts/finalize.py` upserts a small managed block into `CLAUDE.md`, `AGENTS.md`, and `.cursorrules` at the repo root, pointing agents at `.cairn/quickstart.md` before any other repo exploration:
+
+```
+<!-- cairn:start -->
+...pointer text...
+<!-- cairn:end -->
+```
+
+This is self-gating, not mode-gated: a file missing the block gets it created (or appended, if the file already exists with other content) — a file that already carries the block is left completely untouched, marker and all. So it's written once per file, automatically, with no `--init`-style flag or init/update coordination required. Delete the marked block by hand to have it re-bootstrapped on the next run.
 
 ## Grounded-Claims-lite
 
