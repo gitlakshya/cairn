@@ -1,0 +1,35 @@
+name: Sync Cairn wiki
+
+# Copy into .github/workflows/cairn-update.yml and pin a checked-out tag/SHA.
+# Requires ANTHROPIC_API_KEY (or set CAIRN_AGENT and its provider's key/session
+# if wiring another host — see hooks/cairn-gate.sh).
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  sync-wiki:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - run: npm ci && npm run build
+
+      - name: Sync wiki
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: npm run sync
+
+      - uses: stefanzweifel/git-auto-commit-action@v5
+        with:
+          commit_message: "chore: sync cairn wiki"
+          file_pattern: ".cairn/ CLAUDE.md AGENTS.md .cursorrules"

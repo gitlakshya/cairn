@@ -12,4 +12,5 @@ dist/
 *.test.js
 .nyc_output/
 coverage/
+__pycache__/
 .cairn/*

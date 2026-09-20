@@ -35,7 +35,7 @@ class Contexit {
       try {
         const existing = JSON.parse(fs.readFileSync(this.configPath, "utf-8"));
         return {
-          version: existing.version || "3.1.0",
+          version: existing.version || "0.4.0",
           triggers: existing.triggers || ["push"],
           contextPath: existing.contextPath || ".cairn",
           initialized: existing.initialized || false,
@@ -44,7 +44,7 @@ class Contexit {
         // fall through to default
       }
     }
-    return { version: "3.1.0", triggers: ["push"], contextPath: ".cairn", initialized: false };
+    return { version: "0.4.0", triggers: ["push"], contextPath: ".cairn", initialized: false };
   }
 
   private saveConfig(): void {
@@ -485,7 +485,7 @@ async function main(): Promise<void> {
     args.length === 0
   ) {
     console.log(`
-Cairn v3.1.0 — AI-powered repository wiki
+Cairn v0.4.0 — AI-powered repository wiki
 
 CLI:
   --init                              Initialize wiki (full generation)

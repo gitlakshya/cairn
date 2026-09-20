@@ -2,6 +2,8 @@
 
 AI-powered repository wiki that stays in sync with your code.
 
+[MIT licensed](LICENSE)
+
 ## What it does
 
 Generates a compact wiki in `.cairn/` — thematic pages averaging ≤80 lines each, with OKF frontmatter, grounded in your actual files and git history. Updates surgically (only pages affected by recent changes). No-ops when nothing changed.
@@ -120,6 +122,19 @@ npm run configure-triggers -- push,merge
 ```
 
 Git hooks are auto-created in `.git/hooks/` and guarded by `hooks/cairn-gate.sh` to prevent no-op runs.
+
+## Development
+
+`scripts/finalize.py` is the deterministic core (frontmatter, sources, mermaid, links, provenance) and has a golden-fixture test suite in `tests/`:
+
+```bash
+python3 -m unittest discover -s tests -v
+```
+
+`.agents/skills/cairn/scripts/finalize.py` is a symlink to `scripts/finalize.py` — there is exactly one copy of the finalizer; do not hand-edit or re-create it as a separate file.
+
+CI ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)) runs the test suite, plugin manifest validation, and a symlink check on every PR.
+
 
 ## How it works
 
