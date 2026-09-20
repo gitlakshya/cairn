@@ -4,7 +4,7 @@ Config file: `.cairn/cairn.json` (auto-created by `npm run init`)
 
 ```json
 {
-  "version": "0.4.0",
+  "version": "0.5.0",
   "triggers": ["push"],
   "contextPath": ".cairn",
   "initialized": true

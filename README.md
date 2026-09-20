@@ -2,7 +2,7 @@
 
 AI-powered repository wiki that stays in sync with your code.
 
-[MIT licensed](LICENSE)
+[MIT licensed](LICENSE) · [Changelog](CHANGELOG.md)
 
 ## What it does
 

@@ -35,7 +35,7 @@ class Contexit {
       try {
         const existing = JSON.parse(fs.readFileSync(this.configPath, "utf-8"));
         return {
-          version: existing.version || "0.4.0",
+          version: existing.version || "0.5.0",
           triggers: existing.triggers || ["push"],
           contextPath: existing.contextPath || ".cairn",
           initialized: existing.initialized || false,
@@ -44,7 +44,7 @@ class Contexit {
         // fall through to default
       }
     }
-    return { version: "0.4.0", triggers: ["push"], contextPath: ".cairn", initialized: false };
+    return { version: "0.5.0", triggers: ["push"], contextPath: ".cairn", initialized: false };
   }
 
   private saveConfig(): void {
@@ -57,6 +57,58 @@ class Contexit {
 
   private lastUpdatePath(): string {
     return path.join(this.contextDir(), ".last-update.json");
+  }
+
+  private lockPath(): string {
+    return path.join(this.contextDir(), ".run-lock.json");
+  }
+
+  private readLock(): { mode: "init" | "update"; pid: number; startedAt: string } | null {
+    try {
+      return JSON.parse(fs.readFileSync(this.lockPath(), "utf-8"));
+    } catch {
+      return null;
+    }
+  }
+
+  private isPidAlive(pid: number): boolean {
+    try {
+      process.kill(pid, 0);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  // Guards against two overlapping runs and detects a crash mid-run so the next
+  // invocation can report it instead of silently treating a half-written wiki as done.
+  private acquireLock(mode: "init" | "update"): void {
+    const existing = this.readLock();
+    if (existing && this.isPidAlive(existing.pid)) {
+      throw new Error(
+        `Another cairn run (pid ${existing.pid}, mode ${existing.mode}) appears to be in progress ` +
+          `since ${existing.startedAt}. If that process is gone, delete ${this.lockPath()} and retry.`
+      );
+    }
+    if (existing) {
+      console.warn(
+        `⚠️  Found a stale lock from an interrupted ${existing.mode} run (pid ${existing.pid}, ` +
+          `started ${existing.startedAt}) — resuming.`
+      );
+    }
+    fs.mkdirSync(this.contextDir(), { recursive: true });
+    fs.writeFileSync(
+      this.lockPath(),
+      JSON.stringify({ mode, pid: process.pid, startedAt: new Date().toISOString() }, null, 2)
+    );
+  }
+
+  private releaseLock(): void {
+    try {
+      fs.unlinkSync(this.lockPath());
+    } catch {
+      // already gone — nothing to clean up
+    }
   }
 
   private loadLastUpdate(): LastUpdate | null {
@@ -381,35 +433,40 @@ CAIRN_HOOK=1 node "${toolPath}" --update
   async init(): Promise<void> {
     console.log("Initializing repository context...");
     fs.mkdirSync(this.contextDir(), { recursive: true });
+    this.acquireLock("init");
 
-    this.config.triggers = this.config.triggers.length > 0 ? this.config.triggers : ["push"];
-    this.saveConfig();  // not yet marked initialized — a crash before the end leaves init retriable
+    try {
+      this.config.triggers = this.config.triggers.length > 0 ? this.config.triggers : ["push"];
+      this.saveConfig();  // not yet marked initialized — a crash before the end leaves init retriable
 
-    // Phase 1: snapshot existing pages before AI writes
-    this.runFinalize("snapshot");
+      // Phase 1: snapshot existing pages before AI writes
+      this.runFinalize("snapshot");
 
-    const prompt = this.buildPrompt("init");
-    console.log("Generating wiki via Claude Code...");
-    const pages = await this.callClaude(prompt);
+      const prompt = this.buildPrompt("init");
+      console.log("Generating wiki via Claude Code...");
+      const pages = await this.callClaude(prompt);
 
-    if (Object.keys(pages).length === 0) {
-      console.warn("No pages generated — Claude Code unavailable or misconfigured.");
-      this.writeFallbackDocs();
-    } else {
-      const written = this.writePages(pages);
-      written.forEach((l) => console.log(l));
+      if (Object.keys(pages).length === 0) {
+        console.warn("No pages generated — Claude Code unavailable or misconfigured.");
+        this.writeFallbackDocs();
+      } else {
+        const written = this.writePages(pages);
+        written.forEach((l) => console.log(l));
+      }
+
+      // Phase 2: deterministic post-processing (frontmatter, index, links, provenance)
+      this.runFinalize("finalize");
+
+      this.saveLastUpdate("init");
+      this.config.initialized = true;  // only now: generation + finalize both completed
+      this.saveConfig();
+      await this.setupGitHooks();
+      this.writeBoundaryFiles();
+
+      console.log(`\nDone. Context: ${this.config.contextPath}/quickstart.md`);
+    } finally {
+      this.releaseLock();
     }
-
-    // Phase 2: deterministic post-processing (frontmatter, index, links, provenance)
-    this.runFinalize("finalize");
-
-    this.saveLastUpdate("init");
-    this.config.initialized = true;  // only now: generation + finalize both completed
-    this.saveConfig();
-    await this.setupGitHooks();
-    this.writeBoundaryFiles();
-
-    console.log(`\nDone. Context: ${this.config.contextPath}/quickstart.md`);
   }
 
   async update(instruction?: string): Promise<void> {
@@ -430,31 +487,36 @@ CAIRN_HOOK=1 node "${toolPath}" --update
       }
     }
 
-    // Phase 1: snapshot before AI writes
-    this.runFinalize("snapshot");
+    this.acquireLock("update");
+    try {
+      // Phase 1: snapshot before AI writes
+      this.runFinalize("snapshot");
 
-    const prompt = this.buildPrompt("update", instruction);
-    console.log("Updating wiki via Claude Code...");
-    const pages = await this.callClaude(prompt);
+      const prompt = this.buildPrompt("update", instruction);
+      console.log("Updating wiki via Claude Code...");
+      const pages = await this.callClaude(prompt);
 
-    if (Object.keys(pages).length === 0) {
-      console.warn("Update failed — Claude Code unavailable.");
-      return;
+      if (Object.keys(pages).length === 0) {
+        console.warn("Update failed — Claude Code unavailable.");
+        return;
+      }
+
+      const written = this.writePages(pages);
+
+      // Phase 2: deterministic post-processing
+      this.runFinalize("finalize");
+
+      if (written.length === 0) {
+        console.log("No content changes.");
+      } else {
+        console.log("Wiki updated:");
+        written.forEach((l) => console.log(l));
+      }
+
+      this.saveLastUpdate("update");
+    } finally {
+      this.releaseLock();
     }
-
-    const written = this.writePages(pages);
-
-    // Phase 2: deterministic post-processing
-    this.runFinalize("finalize");
-
-    if (written.length === 0) {
-      console.log("No content changes.");
-    } else {
-      console.log("Wiki updated:");
-      written.forEach((l) => console.log(l));
-    }
-
-    this.saveLastUpdate("update");
   }
 
   configureTriggers(triggers: Trigger[]): void {
@@ -485,11 +547,12 @@ async function main(): Promise<void> {
     args.length === 0
   ) {
     console.log(`
-Cairn v0.4.0 — AI-powered repository wiki
+Cairn v0.5.0 — AI-powered repository wiki
 
 CLI:
   --init                              Initialize wiki (full generation)
   --update [--instruction "<text>"]   Surgical update (changed pages only)
+  --sync-docs                         Alias for --update
   --configure-triggers <list>         Set triggers: commit,push,merge,ci,manual
 
 Slash commands (in Claude Code):
