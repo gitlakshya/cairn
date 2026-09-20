@@ -143,7 +143,8 @@ class Contexit {
 
   // Run scripts/finalize.py — deterministic post-processor (no AI involved).
   // mode "snapshot": hash existing pages before AI writes (records baseline)
-  // mode "finalize": fix frontmatter, rebuild index, annotate links, stamp provenance
+  // mode "finalize": fix frontmatter, rebuild index, annotate links, stamp provenance,
+  // upsert CLAUDE.md/AGENTS.md/.cursorrules pointer block (self-gating on marker presence)
   private runFinalize(mode: "snapshot" | "finalize"): void {
     const scriptPath = path.join(path.dirname(process.argv[1]), "..", "scripts", "finalize.py");
     if (!fs.existsSync(scriptPath)) return;
@@ -365,40 +366,9 @@ or type \`/cairn:wiki init\` in Claude Code.
     );
   }
 
-  private writeBoundaryFiles(): void {
-    const claudeMd = `# Cairn
-
-Wiki in \`.cairn/\` — start at \`.cairn/quickstart.md\`.
-
-## Agent Rules
-- Read \`.cairn/quickstart.md\` before any repo exploration
-- Prefer \`.cairn/\` docs over filesystem searches
-- Refresh: \`/cairn:wiki update\` or \`npm run sync\`
-
-## Config
-Triggers: ${this.config.triggers.join(", ")} | Config: \`.cairn/cairn.json\`
-`;
-    const agentsMd = `# Cairn
-Wiki: \`.cairn/\` (entry: quickstart.md)
-Refresh: \`/cairn:wiki update\` or \`npm run sync\`
-Config: \`.cairn/cairn.json\`
-`;
-    const cursorRules = `Read .cairn/quickstart.md for repo overview.
-Refresh docs: /cairn:wiki update
-`;
-
-    for (const [file, content] of [
-      ["CLAUDE.md", claudeMd],
-      ["AGENTS.md", agentsMd],
-      [".cursorrules", cursorRules],
-    ] as [string, string][]) {
-      const p = path.join(this.root, file);
-      if (!fs.existsSync(p)) {
-        fs.writeFileSync(p, content);
-        console.log(`  created ${file}`);
-      }
-    }
-  }
+  // CLAUDE.md/AGENTS.md/.cursorrules pointer blocks are owned by scripts/finalize.py's
+  // pass_boundary_files, run via every runFinalize("finalize") call — self-gating on
+  // marker presence, so it bootstraps a file once and never touches it again.
 
   private async setupGitHooks(): Promise<void> {
     const gitDir = path.join(this.root, ".git");
@@ -454,14 +424,13 @@ CAIRN_HOOK=1 node "${toolPath}" --update
         written.forEach((l) => console.log(l));
       }
 
-      // Phase 2: deterministic post-processing (frontmatter, index, links, provenance)
+      // Phase 2: deterministic post-processing (frontmatter, index, links, provenance, boundary files)
       this.runFinalize("finalize");
 
       this.saveLastUpdate("init");
       this.config.initialized = true;  // only now: generation + finalize both completed
       this.saveConfig();
       await this.setupGitHooks();
-      this.writeBoundaryFiles();
 
       console.log(`\nDone. Context: ${this.config.contextPath}/quickstart.md`);
     } finally {
@@ -503,7 +472,7 @@ CAIRN_HOOK=1 node "${toolPath}" --update
 
       const written = this.writePages(pages);
 
-      // Phase 2: deterministic post-processing
+      // Phase 2: deterministic post-processing (frontmatter, index, links, provenance, boundary files)
       this.runFinalize("finalize");
 
       if (written.length === 0) {

@@ -27,6 +27,20 @@ cut `1.0.0` and switch to standard SemVer (breaking changes only on MAJOR).
   with a clear error).
 - `--help` now documents the previously-undocumented `--sync-docs` alias for
   `--update`.
+- `scripts/finalize.py` now deterministically upserts a managed
+  `<!-- cairn:start -->...<!-- cairn:end -->` pointer block into `CLAUDE.md`,
+  `AGENTS.md`, and `.cursorrules` at the repo root — directs agents to
+  `.cairn/quickstart.md` first, even when those files already exist.
+  Self-gating on the marker's presence rather than on init vs. update mode: a
+  file that already carries the block is left completely untouched, so it's
+  written once per file with no flag or caller-mode coordination needed.
+
+### Changed
+- The CLI's own `writeBoundaryFiles()` (which only created these files if
+  absent) is removed; the finalizer is now the single source of truth shared
+  by the CLI, Claude Code, and Codex routes. The Claude/Codex worker prompt no
+  longer forbids touching `AGENTS.md`/`CLAUDE.md` — it explains they're
+  maintained deterministically instead.
 
 ## [0.4.0] — 2026-09-20
 

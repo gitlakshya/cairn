@@ -205,7 +205,7 @@ Write only `${job.path}`. Do not create, edit, or delete another wiki page.
 
 **[our addition]** If you find a ```text fence whose first line starts with `"cairn: mermaid validation failed"`, fix the diagram (or remove it if it no longer earns its place) and delete the comment line; restore the fence to ```mermaid once it is valid.
 
-**[adapted]** Do not read secrets (`.env`, keys, credentials). Do not create or edit agent instruction files (`AGENTS.md`, `CLAUDE.md`) during this run.
+**[adapted]** Do not read secrets (`.env`, keys, credentials). Do not create or edit `AGENTS.md`, `CLAUDE.md`, or `.cursorrules` yourself — these are maintained separately.
 
 ---
 
@@ -290,4 +290,4 @@ For non-interactive runs, grant this minimal allowlist in `.claude/settings.json
 
 `Bash(python3:*)` is broader than path-pinned entries — deliberate trade-off: the finalizer may sit at an absolute, version-dependent path under a plugin install that no static prefix can match. If that concerns you, pin both Step 2 and Step 3b to a known fixed path and replace `Bash(python3:*)` with `Bash(python3 scripts/finalize.py:*)`.
 
-`AGENTS.md` and `CLAUDE.md` are deliberately absent from the allowlist: the worker prompt already forbids writing them; omitting permission adds a technical backstop. Do not add them back.
+`AGENTS.md`, `CLAUDE.md`, and `.cursorrules` are deliberately absent from the allowlist: the worker prompt already forbids writing them; omitting permission adds a technical backstop. Do not add them back.
