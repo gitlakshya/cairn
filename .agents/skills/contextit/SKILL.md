@@ -1,11 +1,11 @@
 ---
-name: contextit
+name: contexit
 description: Generate/maintain the .context/ documentation wiki (init | update). Use when asked to init, update, or refresh the contexIT / context wiki for this repository.
 ---
 
 # contexIT — documentation agent skill
 
-Invoked as `$contextit` (Codex), via the `skill` tool (opencode), or by asking to "initialize/update the contexit wiki". Same logic as the Claude Code command (`commands/wiki.md`) — kept in sync so behavior does not drift between hosts.
+Invoked as `$contexit` (Codex), via the `skill` tool (opencode), or by asking to "initialize/update the contexit wiki". Same logic as the Claude Code command (`commands/wiki.md`) — kept in sync so behavior does not drift between hosts.
 
 You are the agent; the repository is the target. Follow routing, collect git evidence, then act on the system prompt below.
 
@@ -90,10 +90,10 @@ Find the finalize script. Run this probe and use the first path that responds:
 ```bash
 for c in \
   "scripts/finalize.py" \
-  ".agents/skills/contextit/scripts/finalize.py" \
-  ".claude/skills/contextit/scripts/finalize.py" \
-  "$HOME/.agents/skills/contextit/scripts/finalize.py" \
-  "$HOME/.claude/skills/contextit/scripts/finalize.py"; do
+  ".agents/skills/contexit/scripts/finalize.py" \
+  ".claude/skills/contexit/scripts/finalize.py" \
+  "$HOME/.agents/skills/contexit/scripts/finalize.py" \
+  "$HOME/.claude/skills/contexit/scripts/finalize.py"; do
   [ -f "$c" ] && python3 "$c" --help 2>/dev/null | grep -q -- --snapshot && { echo "$c"; break; }
 done
 ```
@@ -108,7 +108,7 @@ Run snapshot mode:
 python3 <the path from the previous command> .context --snapshot
 ```
 
-This backfills OKF frontmatter on pages missing it and writes `.contextit-run.json` at the repo root: each concept page's body hash plus its prior `generated` event. The state file lives outside `.context/`, is consumed and deleted in Step 3b, and is overwritten by the next run — crash between steps is self-correcting.
+This backfills OKF frontmatter on pages missing it and writes `.contexit-run.json` at the repo root: each concept page's body hash plus its prior `generated` event. The state file lives outside `.context/`, is consumed and deleted in Step 3b, and is overwritten by the next run — crash between steps is self-correcting.
 
 ## Step 3 — System prompt (act as agent)
 
@@ -160,7 +160,7 @@ tags: [<stable English tag>, ...]
 ---
 ```
 
-Do not author `generated`, `verified`, `sources`, `timestamp`, `git_hash`, `last_updated`, or any `contextit_*` control fields — `scripts/finalize.py` owns those.
+Do not author `generated`, `verified`, `sources`, `timestamp`, `git_hash`, `last_updated`, or any `contexit_*` control fields — `scripts/finalize.py` owns those.
 
 On update, preserve unknown producer-defined frontmatter fields unless factually wrong.
 
@@ -170,7 +170,7 @@ Write only the one page you own per pass. Do not create, edit, or delete another
 
 For `.context/quickstart.md`, use the complete planned page map (path, title, purpose for every page) to produce a compact task-routing map that links major domains.
 
-If you find an HTML comment starting `"contextit: broken internal link"`, repair the href to restore the target page using the reason in the comment, then delete the comment.
+If you find an HTML comment starting `"contexit: broken internal link"`, repair the href to restore the target page using the reason in the comment, then delete the comment.
 
 Do not read secrets (`.env`, keys, credentials). Do not create or edit agent instruction files (`AGENTS.md`, `CLAUDE.md`) during this run.
 
@@ -180,7 +180,7 @@ Do not read secrets (`.env`, keys, credentials). Do not create or edit agent ins
 python3 <the Step 2 path> .context --actor <the model you are running as>
 ```
 
-This regenerates directory `index.md` files (root carries `okf_version: "0.2"`), annotates broken internal links, and reconciles generated provenance: pages whose body changed since the Step 2 snapshot are stamped `generated: { by: <actor>, at: <now> }` and lose any legacy `timestamp`; unchanged pages keep (or are restored to) their prior stamp. Deletes `.contextit-run.json`. Always exits 0. Never deletes content.
+This regenerates directory `index.md` files (root carries `okf_version: "0.2"`), annotates broken internal links, and reconciles generated provenance: pages whose body changed since the Step 2 snapshot are stamped `generated: { by: <actor>, at: <now> }` and lose any legacy `timestamp`; unchanged pages keep (or are restored to) their prior stamp. Deletes `.contexit-run.json`. Always exits 0. Never deletes content.
 
 Run it AFTER all wiki work. It is idempotent: running it twice on unchanged files leaves every wiki file byte-identical.
 

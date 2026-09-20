@@ -3,13 +3,13 @@
 #
 # Port of langchain-ai/openwiki v0.5.0).
 #
-# Host-agnostic: set CONTEXTIT_AGENT to pick the headless runner (claude | codex | copilot).
+# Host-agnostic: set CONTEXIT_AGENT to pick the headless runner (claude | codex | copilot).
 # Wired automatically by hooks/hooks.json (Claude Code + Copilot CLI Stop hook) and
 # .codex/hooks.json (Codex Stop hook).
 
 set -eu
 
-[ -n "${CONTEXTIT_HOOK:-}" ] && exit 0   # child run: never re-trigger
+[ -n "${CONTEXIT_HOOK:-}" ] && exit 0   # child run: never re-trigger
 
 git rev-parse --git-dir >/dev/null 2>&1 || exit 0   # not a git repo
 
@@ -22,7 +22,7 @@ last=$([ -f "$meta" ] && sed -n 's/.*"gitHead":[[:space:]]*"\([^"]*\)".*/\1/p' "
 
 dirty=$(git status --short --untracked-files=all \
   | grep -v "${CONTEXT_DIR}/.last-update.json$" \
-  | grep -v ".contextit-run.json$" \
+  | grep -v ".contexit-run.json$" \
   || true)
 
 if [ -n "$last" ] && [ -z "$dirty" ]; then
@@ -32,14 +32,14 @@ if [ -n "$last" ] && [ -z "$dirty" ]; then
     [ -z "$outside" ] && exit 0
 fi
 
-case "${CONTEXTIT_AGENT:-claude}" in
+case "${CONTEXIT_AGENT:-claude}" in
     codex)
-        CONTEXTIT_HOOK=1 setsid codex exec 'update the contexit wiki (.context/)' >/dev/null 2>&1 &
+        CONTEXIT_HOOK=1 setsid codex exec 'update the contexit wiki (.context/)' >/dev/null 2>&1 &
         ;;
     copilot)
-        CONTEXTIT_HOOK=1 setsid copilot -p 'update the contexit wiki (.context/)' --allow-tool='shell,write,read' >/dev/null 2>&1 &
+        CONTEXIT_HOOK=1 setsid copilot -p 'update the contexit wiki (.context/)' --allow-tool='shell,write,read' >/dev/null 2>&1 &
         ;;
     *)
-        CONTEXTIT_HOOK=1 setsid claude -p '/contextit:wiki update' --permission-mode acceptEdits >/dev/null 2>&1 &
+        CONTEXIT_HOOK=1 setsid claude -p '/contexit:wiki update' --permission-mode acceptEdits >/dev/null 2>&1 &
         ;;
 esac

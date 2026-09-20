@@ -12,3 +12,4 @@ dist/
 *.test.js
 .nyc_output/
 coverage/
+.context/*

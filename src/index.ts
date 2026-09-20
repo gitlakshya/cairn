@@ -19,14 +19,14 @@ interface LastUpdate {
   mode: "init" | "update";
 }
 
-class ContextIT {
+class Contexit {
   private readonly root: string;
   private readonly configPath: string;
   private config: Config;
 
   constructor(root = process.cwd()) {
     this.root = root;
-    this.configPath = path.join(root, ".context/contextit.json");
+    this.configPath = path.join(root, ".context/contexit.json");
     this.config = this.loadConfig();
   }
 
@@ -308,7 +308,7 @@ AI documentation not yet generated.
 
 To generate: ensure Claude Code is installed, then run:
   npm run init
-or type \`/contextit:wiki init\` in Claude Code.
+or type \`/contexit:wiki init\` in Claude Code.
 `
     );
   }
@@ -321,18 +321,18 @@ Wiki in \`.context/\` — start at \`.context/quickstart.md\`.
 ## Agent Rules
 - Read \`.context/quickstart.md\` before any repo exploration
 - Prefer \`.context/\` docs over filesystem searches
-- Refresh: \`/contextit:wiki update\` or \`npm run sync\`
+- Refresh: \`/contexit:wiki update\` or \`npm run sync\`
 
 ## Config
-Triggers: ${this.config.triggers.join(", ")} | Config: \`.contextit.json\`
+Triggers: ${this.config.triggers.join(", ")} | Config: \`.contexit.json\`
 `;
     const agentsMd = `# contexIT
 Wiki: \`.context/\` (entry: quickstart.md)
-Refresh: \`/contextit:wiki update\` or \`npm run sync\`
-Config: \`.contextit.json\`
+Refresh: \`/contexit:wiki update\` or \`npm run sync\`
+Config: \`.contexit.json\`
 `;
     const cursorRules = `Read .context/quickstart.md for repo overview.
-Refresh docs: /contextit:wiki update
+Refresh docs: /contexit:wiki update
 `;
 
     for (const [file, content] of [
@@ -370,8 +370,8 @@ Refresh docs: /contextit:wiki update
         hookPath,
         `#!/bin/bash
 # contexIT hook — guards against recursive invocation
-[ "\${CONTEXTIT_HOOK:-0}" = "1" ] && exit 0
-CONTEXTIT_HOOK=1 node "${toolPath}" --update
+[ "\${CONTEXIT_HOOK:-0}" = "1" ] && exit 0
+CONTEXIT_HOOK=1 node "${toolPath}" --update
 `
       );
       fs.chmodSync(hookPath, 0o755);
@@ -464,7 +464,7 @@ CONTEXTIT_HOOK=1 node "${toolPath}" --update
 
 async function main(): Promise<void> {
   const args = process.argv.slice(2);
-  const ctx = new ContextIT();
+  const ctx = new Contexit();
 
   if (args.includes("--init")) {
     await ctx.init();
@@ -490,16 +490,16 @@ CLI:
   --configure-triggers <list>         Set triggers: commit,push,merge,ci,manual
 
 Slash commands (in Claude Code):
-  /contextit:wiki                       Auto-route: init if new, update if exists
-  /contextit:wiki init                  Force full init
-  /contextit:wiki update                Force update
-  /contextit:wiki update <instruction>  Update with extra guidance
+  /contexit:wiki                       Auto-route: init if new, update if exists
+  /contexit:wiki init                  Force full init
+  /contexit:wiki update                Force update
+  /contexit:wiki update <instruction>  Update with extra guidance
 
 Generated pages (in .context/):
   quickstart.md   ≤40 lines  — entry point
   + thematic pages based on repo complexity (max 8 total)
 
-Config: .contextit.json
+Config: .contexit.json
 `);
   } else {
     console.log('Unknown command. Run with --help.');

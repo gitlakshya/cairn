@@ -1,11 +1,11 @@
 {
-  "name": "contextit",
+  "name": "contexit",
   "version": "3.0.0",
   "description": "contexIT — AI-powered repository wiki with OKF frontmatter and git-synchronized surgical updates",
   "type": "module",
   "main": "dist/index.js",
   "bin": {
-    "contextit": "dist/index.js"
+    "contexit": "dist/index.js"
   },
   "scripts": {
     "build": "tsc",
@@ -24,7 +24,7 @@
     "node": ">=18.0.0"
   },
   "keywords": [
-    "contextit", "repository", "context", "wiki", "documentation", "ai", "okf", "mcp"
+    "contexit", "repository", "context", "wiki", "documentation", "ai", "okf", "mcp"
   ],
   "author": "",
   "license": "MIT"

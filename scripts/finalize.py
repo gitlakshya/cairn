@@ -4,10 +4,10 @@
 Ported from openwiki-cc/scripts/openwiki-finalize.py (upstream: langchain-ai/openwiki v0.5.0).
 Runs in two modes:
 
-  --snapshot   Before AI writes: hash every page body, write .contextit-run.json
+  --snapshot   Before AI writes: hash every page body, write .contexit-run.json
   (default)    After AI writes: fix frontmatter, regenerate index.md,
                annotate broken links, stamp provenance from hash diff,
-               then delete .contextit-run.json.
+               then delete .contexit-run.json.
 
 Rules:
   1. Never fail — always exits 0.
@@ -24,10 +24,10 @@ import sys
 import urllib.parse
 
 RESERVED = {"index.md", "INSTRUCTIONS.md"}
-GENERATED_FIELD = "contextit_generated"
+GENERATED_FIELD = "contexit_generated"
 FALLBACK_TYPE = "Reference"
-STATE_FILENAME = ".contextit-run.json"
-ACTOR = "contextit"
+STATE_FILENAME = ".contexit-run.json"
+ACTOR = "contexit"
 
 
 # ---------------------------------------------------------------------------
@@ -244,7 +244,7 @@ def pass_indexes(wiki):
 # Pass 3: broken link annotation
 # ---------------------------------------------------------------------------
 
-MARKER_PREFIX = "contextit: broken internal link"
+MARKER_PREFIX = "contexit: broken internal link"
 LINK_RE = re.compile(r"\[(?P<text>[^\]]*)\]\((?P<href>[^)\s]+)\)")
 ATX_RE = re.compile(r"^(#{1,6})\s+(.*)$", re.M)
 _MARKER_LINE_RE = re.compile(r"^\s*<!--\s*%s[^\n]*?-->\r?$" % re.escape(MARKER_PREFIX))

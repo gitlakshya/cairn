@@ -1,6 +1,6 @@
 # Configuration
 
-Config file: `.contextit.json` (auto-created by `npm run init`)
+Config file: `.contexit.json` (auto-created by `npm run init`)
 
 ```json
 {
@@ -61,7 +61,7 @@ jobs:
       - run: npm run sync
       - uses: stefanzweifel/git-auto-commit-action@v5
         with:
-          commit_message: "chore: sync contextit wiki"
+          commit_message: "chore: sync contexit wiki"
           file_pattern: ".context/"
 ```
 
@@ -69,7 +69,7 @@ jobs:
 
 ```
 ✅  .context/          generated wiki pages
-✅  .contextit.json    config (no secrets)
+✅  .contexit.json    config (no secrets)
 ✅  CLAUDE.md, AGENTS.md, .cursorrules
 ❌  node_modules/, dist/
 ```
